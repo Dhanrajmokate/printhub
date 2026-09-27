@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './api.js';
+
 export type SSEEventHandler = (data: any) => void;
 
 class SSEClient {
@@ -17,7 +19,7 @@ class SSEClient {
     }
 
     try {
-      const url = `/api/sse/stream?token=${encodeURIComponent(token)}`;
+      const url = `${API_BASE_URL}/sse/stream?token=${encodeURIComponent(token)}`;
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {

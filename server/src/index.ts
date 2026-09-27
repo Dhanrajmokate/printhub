@@ -65,7 +65,20 @@ app.use('/uploads/payments', express.static(uploadPaymentsDir));
 // API Rate Limiting
 app.use('/api', apiRateLimiter);
 
-// Health Check
+// Root & Health Check
+app.get('/', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: 'PrintHub Cloud-Edge API Server is live and running! 🚀',
+    database: 'Connected to Neon PostgreSQL',
+    endpoints: {
+      health: '/api/health',
+      shops: '/api/shops',
+      orders: '/api/orders'
+    }
+  });
+});
+
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
