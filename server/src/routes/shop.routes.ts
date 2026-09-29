@@ -328,6 +328,10 @@ router.put('/settings', authenticate, requireRole(['SHOP']), async (req: Authent
       bwDuplexRate,
       colorSingleRate,
       colorDuplexRate,
+      bankAccountName,
+      bankAccountNumber,
+      bankIfsc,
+      razorpayAccountId,
       autoConvert
     } = req.body;
 
@@ -353,6 +357,10 @@ router.put('/settings', authenticate, requireRole(['SHOP']), async (req: Authent
         bwDuplexRate: bwDuplexRate !== undefined ? parseFloat(bwDuplexRate) : undefined,
         colorSingleRate: colorSingleRate !== undefined ? parseFloat(colorSingleRate) : undefined,
         colorDuplexRate: colorDuplexRate !== undefined ? parseFloat(colorDuplexRate) : undefined,
+        bankAccountName: bankAccountName !== undefined ? (bankAccountName ? bankAccountName.trim() : null) : undefined,
+        bankAccountNumber: bankAccountNumber !== undefined ? (bankAccountNumber ? bankAccountNumber.trim() : null) : undefined,
+        bankIfsc: bankIfsc !== undefined ? (bankIfsc ? bankIfsc.trim().toUpperCase() : null) : undefined,
+        razorpayAccountId: razorpayAccountId !== undefined ? (razorpayAccountId ? razorpayAccountId.trim() : null) : undefined,
         autoConvert: autoConvert !== undefined ? Boolean(autoConvert) : undefined
       },
       include: {

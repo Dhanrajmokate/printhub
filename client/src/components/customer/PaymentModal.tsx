@@ -154,7 +154,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
 
       if (paymentMethod === 'RAZORPAY') {
-        const rzpRes = await api.post('/payment/create-order', { amount: subtotal });
+        const rzpRes = await api.post('/payment/create-order', { amount: subtotal, shopId: selectedShop.id });
         const rzpOrder = rzpRes.data.order;
         const rzpKey = rzpRes.data.keyId;
 

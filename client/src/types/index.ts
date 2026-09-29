@@ -57,6 +57,10 @@ export interface Shop {
   bwDuplexRate?: number;
   colorSingleRate?: number;
   colorDuplexRate?: number;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfsc?: string | null;
+  razorpayAccountId?: string | null;
   autoConvert?: boolean;
   capabilities?: ShopCapabilities;
   stats?: {

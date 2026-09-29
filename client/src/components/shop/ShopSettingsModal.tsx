@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2 } from 'lucide-react';
+import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2, Building2, CreditCard, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -33,6 +33,12 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
   const [colorSingleRate, setColorSingleRate] = useState((shop?.colorSingleRate ?? 10.0).toString());
   const [colorDuplexRate, setColorDuplexRate] = useState((shop?.colorDuplexRate ?? 18.0).toString());
 
+  // Bank & Razorpay Route Settlement State
+  const [bankAccountName, setBankAccountName] = useState(shop?.bankAccountName || '');
+  const [bankAccountNumber, setBankAccountNumber] = useState(shop?.bankAccountNumber || '');
+  const [bankIfsc, setBankIfsc] = useState(shop?.bankIfsc || '');
+  const [razorpayAccountId, setRazorpayAccountId] = useState(shop?.razorpayAccountId || '');
+
   const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +57,10 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
       setBwDuplexRate((shop.bwDuplexRate ?? 3.0).toString());
       setColorSingleRate((shop.colorSingleRate ?? 10.0).toString());
       setColorDuplexRate((shop.colorDuplexRate ?? 18.0).toString());
+      setBankAccountName(shop.bankAccountName || '');
+      setBankAccountNumber(shop.bankAccountNumber || '');
+      setBankIfsc(shop.bankIfsc || '');
+      setRazorpayAccountId(shop.razorpayAccountId || '');
     }
   }, [shop, isOpen]);
 
@@ -97,11 +107,15 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
         bwSingleRate: parseFloat(bwSingleRate),
         bwDuplexRate: parseFloat(bwDuplexRate),
         colorSingleRate: parseFloat(colorSingleRate),
-        colorDuplexRate: parseFloat(colorDuplexRate)
+        colorDuplexRate: parseFloat(colorDuplexRate),
+        bankAccountName: bankAccountName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        bankIfsc: bankIfsc.trim().toUpperCase(),
+        razorpayAccountId: razorpayAccountId.trim()
       });
 
       if (res.data.success) {
-        showToast('success', 'Shop Settings Saved', 'Your PhonePe QR code and shop pricing are now updated.');
+        showToast('success', 'Shop Settings Saved', 'Your bank settlement details, QR code, and pricing are now updated.');
         await refreshUser();
         onSaved();
         onClose();
@@ -402,6 +416,78 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Bank Account & Razorpay Route Settlement */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-500" />
+              <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Bank Account & Razorpay Route Settlement
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              When customers pay online via Razorpay, funds are automatically routed and deposited directly into this linked bank account.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Account Holder Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Apex Xerox & Stationers"
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Bank Account Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 50100428912345"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Bank IFSC Code
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. HDFC0001234"
+                  value={bankIfsc}
+                  onChange={(e) => setBankIfsc(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono uppercase text-xs focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Razorpay Route Linked ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. acc_OPq123xyz (optional)"
+                  value={razorpayAccountId}
+                  onChange={(e) => setRazorpayAccountId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>Multi-Vendor Settlement Active: Payouts are reconciled directly to this vendor ledger.</span>
             </div>
           </div>
 

@@ -60,6 +60,10 @@ model Shop {
   bwDuplexRate    Float     @default(3.0)
   colorSingleRate Float     @default(10.0)
   colorDuplexRate Float     @default(18.0)
+  bankAccountName String?
+  bankAccountNumber String?
+  bankIfsc        String?
+  razorpayAccountId String?
   autoConvert     Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

@@ -10,7 +10,7 @@ router.use(authenticate);
 // 1. CREATE RAZORPAY ORDER
 router.post('/create-order', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { amount } = req.body;
+    const { amount, shopId } = req.body;
     const amountNum = parseFloat(amount);
 
     if (isNaN(amountNum) || amountNum < 1) {
@@ -18,7 +18,7 @@ router.post('/create-order', async (req: AuthenticatedRequest, res: Response) =>
     }
 
     const receipt = `rcpt_${Date.now()}`;
-    const razorpayOrder = await createRazorpayOrder(amountNum, receipt);
+    const razorpayOrder = await createRazorpayOrder(amountNum, receipt, shopId);
 
     return res.json({
       success: true,
