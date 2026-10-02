@@ -24,9 +24,14 @@ interface PrintJobRecord {
   duplexMode: string;
   orientation: string;
   paperSize: string;
+  quality?: string;
+  pageRange?: string;
+  scaling?: string;
+  collate?: boolean;
   copies: number;
   printedAt: string;
   outputPath: string;
+  receiptPath?: string;
   status: 'COMPLETED' | 'FAILED';
   physicalDispatched?: boolean;
   physicalPrinter?: string;
@@ -109,19 +114,28 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
       orientation,
       paperSize,
       quality,
-      pageRange
+      pageRange,
+      scaling,
+      collate
     } = req.body;
+
+    const numCopies = copies ? Math.max(1, parseInt(copies as any, 10)) : 1;
+    const finalOrientation = orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
+    const finalPaperSize = paperSize || 'A4';
+    const finalSide = duplexMode === 'DUPLEX' ? 'duplexlong' : 'simplex';
+    const isMonochrome = (colorMode || printerType) === 'BW';
 
     console.log(`\n======================================================`);
     console.log(`🖨️ [Printer Port ${port} - ${printerName}] RECEIVED PRINT JOB`);
     console.log(`📦 Order: ${orderNumber} | File: ${originalFileName}`);
-    console.log(`⚙️ Specs: ${colorMode} | ${duplexMode} | Copies: ${copies} | Size: ${paperSize} | Orientation: ${orientation}`);
-    console.log(`📄 Range: ${pageRange || 'ALL'} | Quality: ${quality}`);
+    console.log(`⚙️ Specs: ${colorMode || printerType} | ${duplexMode || 'SINGLE'} (${finalSide}) | Copies: ${numCopies} | Size: ${finalPaperSize} | Orientation: ${finalOrientation}`);
+    console.log(`📄 Range: ${pageRange || 'ALL'} | Scaling: ${scaling || 'FIT'} | Quality: ${quality || 'NORMAL'}`);
     console.log(`======================================================\n`);
 
     try {
       const safeFileName = `${Date.now()}_${(originalFileName || 'doc.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const destinationPath = path.join(targetDir, safeFileName);
+      const receiptPath = `${destinationPath}.receipt.json`;
 
       // Save local proof copy
       if (filePath && fs.existsSync(filePath)) {
@@ -179,14 +193,21 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
             physicalPrinterName = targetPrinter.name;
             console.log(`🖨️ [Hardware Spooler] Dispatching directly to physical printer: ${targetPrinter.name}...`);
 
-            // Wrap with a 4-second timeout so a busy or unresponsive driver never blocks the server
-            const printPromise = ptp.print(filePath, {
+            const ptpOptions: any = {
               printer: targetPrinter.name,
-              copies: copies || 1,
-              orientation: orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait',
-              paperSize: paperSize || 'A4',
-              pages: pageRange && pageRange !== 'ALL' ? pageRange : undefined
-            });
+              copies: numCopies,
+              orientation: finalOrientation,
+              paperSize: finalPaperSize,
+              pages: pageRange && pageRange !== 'ALL' ? pageRange : undefined,
+              side: finalSide,
+              monochrome: isMonochrome,
+              scale: scaling?.toLowerCase() === 'fit' ? 'fit' : scaling?.toLowerCase() === 'actual' ? 'noscale' : undefined,
+              silent: true,
+              printDialog: false
+            };
+
+            // Wrap with a 4-second timeout so a busy or unresponsive driver never blocks the server
+            const printPromise = ptp.print(filePath, ptpOptions);
 
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Printer driver spool timeout (4s limit)')), 4000)
@@ -195,13 +216,42 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
             await Promise.race([printPromise, timeoutPromise]);
 
             physicalDispatched = true;
-            console.log(`✅ [Hardware Spooler] Physical paper job spooled to ${targetPrinter.name}!`);
+            console.log(`✅ [Hardware Spooler] Physical paper job spooled to ${targetPrinter.name} with attributes!`);
           } else {
             console.log(`ℹ️ [Simulator Spooler] No physical printer connected. High-fidelity proof saved to ${destinationPath}`);
           }
         }
       } catch (hardwareErr: any) {
         console.warn(`[Hardware Spooler Note] ${hardwareErr.message}. Proof safely recorded.`);
+      }
+
+      // Write verified attribute receipt JSON
+      const receiptData = {
+        jobId: jobId || `job_${Date.now()}`,
+        orderNumber: orderNumber || 'N/A',
+        originalFileName: originalFileName || 'document.pdf',
+        printerPort: port,
+        printerName,
+        printerType,
+        colorMode: colorMode || printerType,
+        duplexMode: duplexMode || 'SINGLE',
+        orientation: orientation || 'PORTRAIT',
+        paperSize: finalPaperSize,
+        quality: quality || 'NORMAL',
+        pageRange: pageRange || 'ALL',
+        scaling: scaling || 'FIT',
+        collate: collate !== undefined ? Boolean(collate) : true,
+        copies: numCopies,
+        physicalDispatched,
+        physicalPrinter: physicalPrinterName,
+        printedAt: new Date().toISOString(),
+        proofFile: destinationPath
+      };
+
+      try {
+        fs.writeFileSync(receiptPath, JSON.stringify(receiptData, null, 2), 'utf-8');
+      } catch (e: any) {
+        console.warn(`Could not write receipt JSON: ${e.message}`);
       }
 
       const record: PrintJobRecord = {
@@ -211,10 +261,15 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
         colorMode: colorMode || printerType,
         duplexMode: duplexMode || 'SINGLE',
         orientation: orientation || 'PORTRAIT',
-        paperSize: paperSize || 'A4',
-        copies: copies || 1,
+        paperSize: finalPaperSize,
+        quality: quality || 'NORMAL',
+        pageRange: pageRange || 'ALL',
+        scaling: scaling || 'FIT',
+        collate: collate !== undefined ? Boolean(collate) : true,
+        copies: numCopies,
         printedAt: new Date().toISOString(),
         outputPath: destinationPath,
+        receiptPath,
         status: 'COMPLETED',
         physicalDispatched,
         physicalPrinter: physicalPrinterName
@@ -231,8 +286,18 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
         physicalDispatched,
         physicalPrinter: physicalPrinterName,
         port,
+        attributes: {
+          colorMode: colorMode || printerType,
+          duplexMode: duplexMode || 'SINGLE',
+          copies: numCopies,
+          orientation: finalOrientation,
+          paperSize: finalPaperSize,
+          pageRange: pageRange || 'ALL',
+          scaling: scaling || 'FIT'
+        },
         outputFile: safeFileName,
         outputPath: destinationPath,
+        receiptPath,
         timestamp: new Date().toISOString()
       });
     } catch (err: any) {

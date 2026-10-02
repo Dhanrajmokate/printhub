@@ -90,94 +90,100 @@ router.post('/', requireRole(['CUSTOMER']), async (req: AuthenticatedRequest, re
 
     const selectedPaymentMethod = paymentMethod === 'WALLET' ? 'WALLET' : paymentMethod === 'RAZORPAY' ? 'RAZORPAY' : 'SHOP_UPI_QR';
 
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      if (selectedPaymentMethod === 'WALLET') {
-        const wallet = await tx.wallet.findUnique({
-          where: { userId: customerId }
+    const createdOrder = await prisma.$transaction(
+      async (tx) => {
+        if (selectedPaymentMethod === 'WALLET') {
+          const wallet = await tx.wallet.findUnique({
+            where: { userId: customerId }
+          });
+
+          if (!wallet || wallet.balance < totalOrderAmount) {
+            throw new Error(
+              `Insufficient wallet balance (₹${wallet?.balance.toFixed(2) || '0.00'}). Required: ₹${totalOrderAmount.toFixed(2)}`
+            );
+          }
+
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: wallet.balance - totalOrderAmount }
+          });
+
+          await tx.transaction.create({
+            data: {
+              walletId: wallet.id,
+              amount: totalOrderAmount,
+              type: 'DEBIT',
+              description: `Print Order ${orderNumber}`,
+              orderId: orderNumber
+            }
+          });
+        }
+
+        // Create Order in DB
+        const order = await tx.order.create({
+          data: {
+            orderNumber,
+            customerId,
+            shopId,
+            status: 'PENDING',
+            totalAmount: totalOrderAmount,
+            paymentMethod: selectedPaymentMethod,
+            paymentStatus: 'PAID',
+            upiTransactionRef: upiTransactionRef ? String(upiTransactionRef).trim() : null,
+            razorpayPaymentId: razorpayPaymentId || null,
+            paymentScreenshot: paymentScreenshot || null,
+            notes: notes || null,
+            items: {
+              create: validatedItems
+            }
+          },
+          include: {
+            customer: {
+              select: { id: true, name: true, phone: true, email: true }
+            },
+            shop: {
+              select: { id: true, name: true, address: true, phone: true, upiId: true }
+            },
+            items: true
+          }
         });
 
-        if (!wallet || wallet.balance < totalOrderAmount) {
-          throw new Error(
-            `Insufficient wallet balance (₹${wallet?.balance.toFixed(2) || '0.00'}). Required: ₹${totalOrderAmount.toFixed(2)}`
-          );
+        // Credit Shop Owner's Wallet with Order Revenue
+        let shopWallet = await tx.wallet.findUnique({
+          where: { userId: shop.userId }
+        });
+
+        if (!shopWallet) {
+          shopWallet = await tx.wallet.create({
+            data: {
+              userId: shop.userId,
+              balance: 0.0
+            }
+          });
         }
 
         await tx.wallet.update({
-          where: { id: wallet.id },
-          data: { balance: wallet.balance - totalOrderAmount }
+          where: { id: shopWallet.id },
+          data: { balance: { increment: totalOrderAmount } }
         });
 
         await tx.transaction.create({
           data: {
-            walletId: wallet.id,
+            walletId: shopWallet.id,
             amount: totalOrderAmount,
-            type: 'DEBIT',
-            description: `Print Order ${orderNumber}`,
+            type: 'CREDIT',
+            description: `Revenue from Order #${orderNumber} (${selectedPaymentMethod})`,
             orderId: orderNumber
           }
         });
+
+        return order;
+      },
+      {
+        maxWait: 15000,
+        timeout: 30000
       }
-
-      // Create Order in DB
-      const order = await tx.order.create({
-        data: {
-          orderNumber,
-          customerId,
-          shopId,
-          status: 'PENDING',
-          totalAmount: totalOrderAmount,
-          paymentMethod: selectedPaymentMethod,
-          paymentStatus: 'PAID',
-          upiTransactionRef: upiTransactionRef ? String(upiTransactionRef).trim() : null,
-          razorpayPaymentId: razorpayPaymentId || null,
-          paymentScreenshot: paymentScreenshot || null,
-          notes: notes || null,
-          items: {
-            create: validatedItems
-          }
-        },
-        include: {
-          customer: {
-            select: { id: true, name: true, phone: true, email: true }
-          },
-          shop: {
-            select: { id: true, name: true, address: true, phone: true, upiId: true }
-          },
-          items: true
-        }
-      });
-
-      // Credit Shop Owner's Wallet with Order Revenue
-      let shopWallet = await tx.wallet.findUnique({
-        where: { userId: shop.userId }
-      });
-
-      if (!shopWallet) {
-        shopWallet = await tx.wallet.create({
-          data: {
-            userId: shop.userId,
-            balance: 0.0
-          }
-        });
-      }
-
-      await tx.wallet.update({
-        where: { id: shopWallet.id },
-        data: { balance: { increment: totalOrderAmount } }
-      });
-
-      await tx.transaction.create({
-        data: {
-          walletId: shopWallet.id,
-          amount: totalOrderAmount,
-          type: 'CREDIT',
-          description: `Revenue from Order #${orderNumber} (${selectedPaymentMethod})`,
-          orderId: orderNumber
-        }
-      });
-
-      return order;
-    });
+    );
 
     // Notify Shop via SSE
     sseService.notifyShop(shopId, 'new_order', {
@@ -586,7 +592,7 @@ router.post('/:id/cancel', requireRole(['CUSTOMER']), async (req: AuthenticatedR
           });
         }
       }
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 
     sseService.notifyShop(order.shopId, 'queue_updated', {
       orderId: order.id,
