@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Printer, CheckCircle2, User, Phone, Clock, FileText, AlertCircle, RefreshCw, Sparkles, Check, Camera, ExternalLink, X } from 'lucide-react';
 import { Order, OrderItem } from '../../types/index.js';
-import { api } from '../../services/api.js';
+import { api, getApiBaseUrl } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
 import { sseClient } from '../../services/sse.js';
 import { SkeletonShimmer } from '../common/SkeletonShimmer.js';
@@ -39,6 +39,14 @@ export const QueueDashboard: React.FC = () => {
   useEffect(() => {
     fetchQueue();
 
+    // Ensure SSE is active
+    sseClient.connect();
+
+    // Backup polling every 8s to guarantee live queue sync across cloud & desktop
+    const pollInterval = setInterval(() => {
+      fetchQueue();
+    }, 8000);
+
     // SSE listeners for live new orders and status changes
     const unsubNewOrder = sseClient.on('new_order', async (data: any) => {
       showToast('info', 'New Print Order Received!', `Order #${data.orderNumber} from ${data.customerName} (₹${data.totalAmount?.toFixed(2) || '0.00'})`);
@@ -74,6 +82,7 @@ export const QueueDashboard: React.FC = () => {
     });
 
     return () => {
+      clearInterval(pollInterval);
       unsubNewOrder();
       unsubQueue();
     };
@@ -88,10 +97,11 @@ export const QueueDashboard: React.FC = () => {
       if (typeof window !== 'undefined' && window.electronAPI?.printJob) {
         const itemResult = res.data?.result;
         if (itemResult) {
+          const baseServer = getApiBaseUrl().replace(/\/api$/, '');
           await window.electronAPI.printJob({
             orderNumber: res.data?.orderNumber || 'ORD',
             originalFileName: itemTitle,
-            fileUrl: itemResult.fileUrl || `http://localhost:8000/uploads/raw/${itemResult.storedFileName}`,
+            fileUrl: itemResult.fileUrl || `${baseServer}/uploads/raw/${itemResult.storedFileName}`,
             copies: itemResult.copies || 1,
             colorMode: itemResult.colorMode || 'BW',
             duplexMode: itemResult.duplexMode || 'SINGLE',

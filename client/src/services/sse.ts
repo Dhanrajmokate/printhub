@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './api.js';
+import { getApiBaseUrl } from './api.js';
 
 export type SSEEventHandler = (data: any) => void;
 
@@ -8,7 +8,10 @@ class SSEClient {
   private reconnectTimeout: any = null;
 
   connect() {
-    const token = sessionStorage.getItem('printhub_token');
+    const token = (typeof window !== 'undefined'
+      ? (sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token'))
+      : null);
+
     if (!token) {
       this.disconnect();
       return;
@@ -19,7 +22,8 @@ class SSEClient {
     }
 
     try {
-      const url = `${API_BASE_URL}/sse/stream?token=${encodeURIComponent(token)}`;
+      const baseUrl = getApiBaseUrl();
+      const url = `${baseUrl}/sse/stream?token=${encodeURIComponent(token)}`;
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {

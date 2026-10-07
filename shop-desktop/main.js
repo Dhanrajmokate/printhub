@@ -21,7 +21,7 @@ if (!fs.existsSync(printedOutputDir)) fs.mkdirSync(printedOutputDir, { recursive
 
 // Default Configuration
 const defaultConfig = {
-  backendUrl: 'http://localhost:8000',
+  backendUrl: 'https://printhub-cloud-api.onrender.com',
   autoPrint: false,
   soundAlerts: true,
   bwPrinter: '',
