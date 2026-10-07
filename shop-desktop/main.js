@@ -136,9 +136,19 @@ function createWindow() {
   });
 
   const targetUrl = process.env.VITE_DEV_URL || 'http://localhost:8080/shop';
-  const clientDistFolder = fs.existsSync(path.join(__dirname, 'client-dist', 'index.html'))
-    ? path.join(__dirname, 'client-dist')
-    : path.join(__dirname, '..', 'client', 'dist');
+
+  // Resolve client-dist folder across dev, unpacked resources, and packaged modes
+  const unpackedClientDist = process.resourcesPath
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'client-dist')
+    : '';
+  const localClientDist = path.join(__dirname, 'client-dist');
+  const siblingClientDist = path.join(__dirname, '..', 'client', 'dist');
+
+  const clientDistFolder = (unpackedClientDist && fs.existsSync(path.join(unpackedClientDist, 'index.html')))
+    ? unpackedClientDist
+    : fs.existsSync(path.join(localClientDist, 'index.html'))
+    ? localClientDist
+    : siblingClientDist;
 
   axios.get('http://localhost:8080', { timeout: 1500 })
     .then(() => {

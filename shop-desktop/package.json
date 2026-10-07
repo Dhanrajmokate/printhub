@@ -40,7 +40,8 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/pdf-to-printer/**/*"
+      "**/node_modules/pdf-to-printer/**/*",
+      "client-dist/**/*"
     ]
   },
   "keywords": [],
