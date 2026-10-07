@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Store, Printer, BarChart3, Settings, Clock, Sparkles, MapPin, Phone, RefreshCw, Wallet, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Store, Printer, BarChart3, Settings, Clock, Sparkles, MapPin, Phone, RefreshCw, Wallet, Download, Zap, FolderOpen, Monitor, Server } from 'lucide-react';
 import { QueueDashboard } from '../components/shop/QueueDashboard.js';
 import { PrinterManager } from '../components/shop/PrinterManager.js';
 import { AnalyticsDashboard } from '../components/shop/AnalyticsDashboard.js';
 import { ShopWalletDashboard } from '../components/shop/ShopWalletDashboard.js';
 import { ShopSettingsModal } from '../components/shop/ShopSettingsModal.js';
+import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
 import { useAuth } from '../context/AuthContext.js';
 
 export const ShopDashboard: React.FC = () => {
@@ -13,6 +14,36 @@ export const ShopDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'QUEUE' | 'PRINTERS' | 'ANALYTICS' | 'WALLET'>('QUEUE');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [currentServerUrl, setCurrentServerUrl] = useState('http://localhost:8000');
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+  const [autoPrint, setAutoPrint] = useState(false);
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('printhub_server_url') || 'http://localhost:8000';
+    setCurrentServerUrl(savedUrl);
+    if (isElectron && window.electronAPI?.getConfig) {
+      window.electronAPI.getConfig().then((cfg) => {
+        if (cfg) {
+          if (typeof cfg.autoPrint === 'boolean') {
+            setAutoPrint(cfg.autoPrint);
+          }
+          if (cfg.backendUrl) {
+            setCurrentServerUrl(cfg.backendUrl);
+          }
+        }
+      });
+    }
+  }, [isElectron]);
+
+  const handleToggleAutoPrint = async () => {
+    const nextVal = !autoPrint;
+    setAutoPrint(nextVal);
+    if (isElectron && window.electronAPI?.saveConfig) {
+      const cfg = await window.electronAPI.getConfig();
+      await window.electronAPI.saveConfig({ ...cfg, autoPrint: nextVal });
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -27,6 +58,12 @@ export const ShopDashboard: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
               Verified Partner
             </span>
+            {isElectron && (
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-bold flex items-center gap-1">
+                <Monitor className="w-3 h-3 text-indigo-400" />
+                Desktop Spooler
+              </span>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
@@ -47,15 +84,69 @@ export const ShopDashboard: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-          <a
-            href="/start-printer-agent.bat"
-            download="start-printer-agent.bat"
-            className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/25"
-            title="Download the Windows batch agent to link physical printers"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Agent (.bat)</span>
-          </a>
+          {isElectron ? (
+            <>
+              {/* Native Auto-Print Toggle */}
+              <button
+                type="button"
+                onClick={handleToggleAutoPrint}
+                className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm ${
+                  autoPrint
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/25'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+                title="Automatically dispatch paid jobs to physical printer spooler"
+              >
+                <Zap className={`w-4 h-4 ${autoPrint ? 'text-emerald-200 fill-emerald-200' : 'text-slate-400'}`} />
+                <span>Auto-Print: {autoPrint ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Native Print Proofs Folder */}
+              <button
+                type="button"
+                onClick={() => window.electronAPI?.openProofFolder()}
+                className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                title="Open local folder containing generated audit proofs"
+              >
+                <FolderOpen className="w-4 h-4 text-slate-400" />
+                <span>Proofs</span>
+              </button>
+
+              {/* Central Server Connection Config */}
+              <button
+                type="button"
+                onClick={() => setIsServerModalOpen(true)}
+                className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                title="Configure Central Backend Server Connection (Localhost, Wi-Fi IP, or Cloud)"
+              >
+                <Server className="w-4 h-4 text-indigo-400" />
+                <span className="font-mono text-[11px] text-indigo-300 max-w-[120px] truncate">
+                  {currentServerUrl.replace(/^https?:\/\//, '')}
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <a
+                href="/downloads/PrintHub-Shop-Setup.exe"
+                download="PrintHub-Shop-Setup.exe"
+                className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/25"
+                title="Download the standalone Windows Desktop App (.exe)"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Desktop App (.exe)</span>
+              </a>
+
+              <a
+                href="/start-printer-agent.bat"
+                download="start-printer-agent.bat"
+                className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                title="Alternative lightweight batch script agent"
+              >
+                <span>Agent (.bat)</span>
+              </a>
+            </>
+          )}
 
           <button
             type="button"
@@ -80,6 +171,26 @@ export const ShopDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* SmartScreen guidance note for shopkeepers */}
+      {!isElectron && (
+        <div className="px-5 py-3 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shrink-0"></span>
+            <span>
+              <strong>Hardware Spooler:</strong> Install the native Windows Desktop App to auto-dispatch paid jobs to physical printers. If Windows SmartScreen prompts <em>"Windows protected your PC"</em>, click <strong>More info</strong> &rarr; <strong>Run anyway</strong>.
+            </span>
+          </div>
+          <a
+            href="/downloads/PrintHub-Shop-Setup.exe"
+            download="PrintHub-Shop-Setup.exe"
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/30"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download .exe</span>
+          </a>
+        </div>
+      )}
 
       {/* Main Tab Navigation */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto pb-1">
@@ -147,6 +258,14 @@ export const ShopDashboard: React.FC = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSaved={() => {}}
+      />
+
+      {/* Central Server Config Modal */}
+      <ServerConfigModal
+        isOpen={isServerModalOpen}
+        onClose={() => setIsServerModalOpen(false)}
+        currentUrl={currentServerUrl}
+        onUrlUpdated={(newUrl) => setCurrentServerUrl(newUrl)}
       />
     </div>
   );

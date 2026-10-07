@@ -1,7 +1,15 @@
 import axios from 'axios';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-export const API_BASE_URL = rawApiUrl ? `${rawApiUrl}/api` : '/api';
+export const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('printhub_server_url');
+    if (custom) return `${custom.replace(/\/$/, '')}/api`;
+  }
+  const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  return rawApiUrl ? `${rawApiUrl}/api` : '/api';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,10 +18,16 @@ export const api = axios.create({
   }
 });
 
-// Attach JWT token from sessionStorage (isolated per tab)
+// Attach JWT token from sessionStorage or localStorage
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('printhub_token');
+    if (typeof window !== 'undefined') {
+      const custom = localStorage.getItem('printhub_server_url');
+      if (custom) {
+        config.baseURL = `${custom.replace(/\/$/, '')}/api`;
+      }
+    }
+    const token = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

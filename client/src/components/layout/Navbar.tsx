@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Printer, ShoppingBag, Sun, Moon, Wallet, Menu, X, LogOut, User, LayoutDashboard, Clock, Store, Sparkles, ChevronRight } from 'lucide-react';
+import { Printer, ShoppingBag, Sun, Moon, Wallet, Menu, X, LogOut, User, LayoutDashboard, Clock, Store, Sparkles, ChevronRight, Download, Monitor } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useCart } from '../../context/CartContext.js';
@@ -110,6 +110,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                 Shop Dashboard & Queue
               </Link>
             )}
+
+            {/* Desktop App Download Button */}
+            <a
+              href="/downloads/PrintHub-Shop-Setup.exe"
+              download="PrintHub-Shop-Setup.exe"
+              className="ml-2 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 shadow-sm"
+              title="Download Desktop App for Windows (.exe)"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Desktop App (.exe)</span>
+            </a>
           </nav>
 
           {/* Right: Wallet Badge, Cart, Dark Mode Toggle, Profile/Auth */}
@@ -280,6 +291,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </Link>
                 )}
+                {/* Desktop App Download Link */}
+                <a
+                  href="/downloads/PrintHub-Shop-Setup.exe"
+                  download="PrintHub-Shop-Setup.exe"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>Download Desktop App (.exe)</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-indigo-400" />
+                </a>
               </nav>
             </div>
 

@@ -40,7 +40,12 @@ router.post('/', requireRole(['CUSTOMER']), async (req: AuthenticatedRequest, re
 
     for (const item of items) {
       const colorMode = item.colorMode === 'COLOR' ? 'COLOR' : 'BW';
-      const duplexMode = item.duplexMode === 'DUPLEX' ? 'DUPLEX' : 'SINGLE';
+      const duplexMode =
+        item.duplexMode === 'DUPLEX_SHORT'
+          ? 'DUPLEX_SHORT'
+          : item.duplexMode === 'DUPLEX_LONG' || item.duplexMode === 'DUPLEX'
+          ? 'DUPLEX_LONG'
+          : 'SINGLE';
 
       if (colorMode === 'COLOR') {
         const hasColor = shop.printers.some((p) => p.type === 'COLOR' && p.isOnline);
@@ -57,6 +62,7 @@ router.post('/', requireRole(['CUSTOMER']), async (req: AuthenticatedRequest, re
         duplexMode,
         totalPages: item.pageCount || 1,
         pageRange: item.pageRange || 'ALL',
+        pageSubset: item.pageSubset || 'ALL',
         copies: item.copies || 1,
         rates
       });
@@ -77,6 +83,7 @@ router.post('/', requireRole(['CUSTOMER']), async (req: AuthenticatedRequest, re
         paperSize: item.paperSize || 'A4',
         quality: item.quality || 'NORMAL',
         pageRange: item.pageRange || 'ALL',
+        pageSubset: item.pageSubset || 'ALL',
         scaling: item.scaling || 'FIT',
         collate: item.collate !== undefined ? Boolean(item.collate) : true,
         itemPrice: pricing.totalPrice,
@@ -389,7 +396,7 @@ router.post('/:orderId/items/:itemId/print', requireRole(['SHOP']), async (req: 
       orderNumber: order.orderNumber,
       itemId: item.id,
       colorMode: item.colorMode as 'BW' | 'COLOR',
-      duplexMode: item.duplexMode as 'SINGLE' | 'DUPLEX',
+      duplexMode: item.duplexMode as any,
       storedFileName: item.storedFileName,
       originalFileName: item.originalFileName,
       copies: item.copies,
@@ -397,6 +404,7 @@ router.post('/:orderId/items/:itemId/print', requireRole(['SHOP']), async (req: 
       paperSize: item.paperSize,
       quality: item.quality,
       pageRange: item.pageRange,
+      pageSubset: (item as any).pageSubset || 'ALL',
       scaling: item.scaling,
       collate: item.collate
     });

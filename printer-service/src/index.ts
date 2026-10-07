@@ -26,6 +26,7 @@ interface PrintJobRecord {
   paperSize: string;
   quality?: string;
   pageRange?: string;
+  pageSubset?: string;
   scaling?: string;
   collate?: boolean;
   copies: number;
@@ -115,21 +116,36 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
       paperSize,
       quality,
       pageRange,
+      pageSubset,
       scaling,
       collate
     } = req.body;
 
     const numCopies = copies ? Math.max(1, parseInt(copies as any, 10)) : 1;
-    const finalOrientation = orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
+    const finalOrientation = orientation?.toLowerCase() === 'landscape' 
+      ? 'landscape' 
+      : orientation?.toLowerCase() === 'portrait' 
+        ? 'portrait' 
+        : undefined; // undefined allows auto-detection from document dimensions
     const finalPaperSize = paperSize || 'A4';
-    const finalSide = duplexMode === 'DUPLEX' ? 'duplexlong' : 'simplex';
+    const finalSide = duplexMode === 'DUPLEX_SHORT' 
+      ? 'duplexshort' 
+      : (duplexMode === 'DUPLEX_LONG' || duplexMode === 'DUPLEX') 
+        ? 'duplexlong' 
+        : 'simplex';
+    const finalSubset = pageSubset === 'ODD' ? 'odd' : pageSubset === 'EVEN' ? 'even' : undefined;
+    const finalScale = scaling?.toLowerCase() === 'shrink'
+      ? 'shrink'
+      : scaling?.toLowerCase() === 'actual'
+        ? 'noscale'
+        : 'fit';
     const isMonochrome = (colorMode || printerType) === 'BW';
 
     console.log(`\n======================================================`);
     console.log(`🖨️ [Printer Port ${port} - ${printerName}] RECEIVED PRINT JOB`);
     console.log(`📦 Order: ${orderNumber} | File: ${originalFileName}`);
-    console.log(`⚙️ Specs: ${colorMode || printerType} | ${duplexMode || 'SINGLE'} (${finalSide}) | Copies: ${numCopies} | Size: ${finalPaperSize} | Orientation: ${finalOrientation}`);
-    console.log(`📄 Range: ${pageRange || 'ALL'} | Scaling: ${scaling || 'FIT'} | Quality: ${quality || 'NORMAL'}`);
+    console.log(`⚙️ Specs: ${colorMode || printerType} | ${duplexMode || 'SINGLE'} (${finalSide}) | Copies: ${numCopies} | Size: ${finalPaperSize} | Orientation: ${orientation || 'AUTO'}`);
+    console.log(`📄 Range: ${pageRange || 'ALL'} | Subset: ${pageSubset || 'ALL'} | Scaling: ${scaling || 'FIT'} | Quality: ${quality || 'NORMAL'}`);
     console.log(`======================================================\n`);
 
     try {
@@ -171,19 +187,36 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
             );
           };
 
-          // 1. Try matching by configured printer name (if not a generic virtual driver)
-          let targetPrinter = sysPrinters.find((p: any) =>
-            !isVirtual(p.name) &&
-            (p.name.toLowerCase().includes(printerName.toLowerCase()) ||
-            (printerType === 'COLOR' && p.name.toLowerCase().includes('color')))
-          );
+          // Helper to match configured printer name with Windows printer name
+          const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const configClean = clean(printerName);
 
-          // 2. Fallback to Windows default printer if it is physical
+          // 1. Try matching by configured printer name (if not a generic virtual driver)
+          let targetPrinter = sysPrinters.find((p: any) => {
+            if (isVirtual(p.name)) return false;
+            const pClean = clean(p.name);
+            return pClean.includes(configClean) || configClean.includes(pClean);
+          });
+
+          // 2. Type-specific matching if still not matched
+          if (!targetPrinter) {
+            targetPrinter = sysPrinters.find((p: any) => {
+              if (isVirtual(p.name)) return false;
+              const lower = p.name.toLowerCase();
+              if (printerType === 'COLOR') {
+                return lower.includes('color') || lower.includes('inkjet') || lower.includes('deskjet') || lower.includes('ecotank') || lower.includes('l3150') || lower.includes('l3250') || lower.includes('pixma');
+              } else {
+                return lower.includes('laser') || lower.includes('mono') || lower.includes('laserjet') || lower.includes('1020') || lower.includes('m1005') || lower.includes('brother');
+              }
+            });
+          }
+
+          // 3. Fallback to Windows default printer if it is physical
           if (!targetPrinter && defaultPrinter && !isVirtual(defaultPrinter.name)) {
             targetPrinter = defaultPrinter;
           }
 
-          // 3. Fallback to ANY physical hardware printer connected to this PC
+          // 4. Fallback to ANY physical hardware printer connected to this PC
           if (!targetPrinter) {
             targetPrinter = sysPrinters.find((p: any) => !isVirtual(p.name));
           }
@@ -199,18 +232,19 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
               orientation: finalOrientation,
               paperSize: finalPaperSize,
               pages: pageRange && pageRange !== 'ALL' ? pageRange : undefined,
+              subset: finalSubset,
               side: finalSide,
               monochrome: isMonochrome,
-              scale: scaling?.toLowerCase() === 'fit' ? 'fit' : scaling?.toLowerCase() === 'actual' ? 'noscale' : undefined,
+              scale: finalScale,
               silent: true,
               printDialog: false
             };
 
-            // Wrap with a 4-second timeout so a busy or unresponsive driver never blocks the server
+            // Wrap with a 15-second timeout so physical printers have enough time to wake up, warm up & spool
             const printPromise = ptp.print(filePath, ptpOptions);
 
             const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Printer driver spool timeout (4s limit)')), 4000)
+              setTimeout(() => reject(new Error('Physical printer driver spool timeout (15s limit)')), 15000)
             );
 
             await Promise.race([printPromise, timeoutPromise]);
@@ -235,10 +269,12 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
         printerType,
         colorMode: colorMode || printerType,
         duplexMode: duplexMode || 'SINGLE',
-        orientation: orientation || 'PORTRAIT',
+        side: finalSide,
+        orientation: orientation || 'AUTO',
         paperSize: finalPaperSize,
         quality: quality || 'NORMAL',
         pageRange: pageRange || 'ALL',
+        pageSubset: pageSubset || 'ALL',
         scaling: scaling || 'FIT',
         collate: collate !== undefined ? Boolean(collate) : true,
         copies: numCopies,
@@ -260,10 +296,11 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
         originalFileName: originalFileName || 'document.pdf',
         colorMode: colorMode || printerType,
         duplexMode: duplexMode || 'SINGLE',
-        orientation: orientation || 'PORTRAIT',
+        orientation: orientation || 'AUTO',
         paperSize: finalPaperSize,
         quality: quality || 'NORMAL',
         pageRange: pageRange || 'ALL',
+        pageSubset: pageSubset || 'ALL',
         scaling: scaling || 'FIT',
         collate: collate !== undefined ? Boolean(collate) : true,
         copies: numCopies,
@@ -289,11 +326,14 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
         attributes: {
           colorMode: colorMode || printerType,
           duplexMode: duplexMode || 'SINGLE',
+          side: finalSide,
           copies: numCopies,
-          orientation: finalOrientation,
+          orientation: orientation || 'AUTO',
           paperSize: finalPaperSize,
           pageRange: pageRange || 'ALL',
-          scaling: scaling || 'FIT'
+          pageSubset: pageSubset || 'ALL',
+          scaling: scaling || 'FIT',
+          collate: collate !== undefined ? Boolean(collate) : true
         },
         outputFile: safeFileName,
         outputPath: destinationPath,

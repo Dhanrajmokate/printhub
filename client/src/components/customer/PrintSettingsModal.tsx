@@ -31,7 +31,7 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
 
   if (!isOpen || !fileMeta) return null;
 
-  const effectivePages = parsePageRange(fileMeta.pageCount, settings.pageRange);
+  const effectivePages = parsePageRange(fileMeta.pageCount, settings.pageRange, settings.pageSubset);
   const priceInfo = calculatePrice(fileMeta, settings, shop);
 
   const handleSave = () => {
@@ -41,6 +41,10 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
 
   const supportsColor = shop?.capabilities?.supportsColor ?? true;
   const supportsDuplex = shop?.capabilities?.supportsDuplex ?? true;
+
+  // Determine active page selection mode
+  const currentSubset = settings.pageSubset || 'ALL';
+  const isCustomRange = currentSubset === 'ALL' && settings.pageRange && settings.pageRange.trim().toUpperCase() !== 'ALL';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
@@ -109,37 +113,58 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 2. SEPARATE TOGGLE: DUPLEX (Single-sided vs Double-sided) */}
+          {/* 2. REAL PRINTER DUPLEX: SINGLE vs FLIP LONG EDGE vs FLIP SHORT EDGE */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              2. Sides & Duplex Mode
+              2. Sides & Duplex Binding
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setSettings((s) => ({ ...s, duplexMode: 'SINGLE' }))}
-                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 font-semibold text-sm transition-all ${
+                className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 text-center transition-all ${
                   settings.duplexMode === 'SINGLE'
-                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-sm font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 text-xs font-medium'
                 }`}
               >
-                <span>📄</span> Single-Sided
+                <span className="text-base mb-0.5">📄</span>
+                <span className="text-xs font-bold">1-Sided</span>
+                <span className="text-[10px] text-slate-400">Simplex print</span>
               </button>
 
               <button
                 type="button"
                 disabled={!supportsDuplex}
-                onClick={() => setSettings((s) => ({ ...s, duplexMode: 'DUPLEX' }))}
-                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 font-semibold text-sm transition-all ${
+                onClick={() => setSettings((s) => ({ ...s, duplexMode: 'DUPLEX_LONG' }))}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 text-center transition-all ${
                   !supportsDuplex
                     ? 'opacity-40 cursor-not-allowed border-slate-200'
-                    : settings.duplexMode === 'DUPLEX'
-                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    : settings.duplexMode === 'DUPLEX_LONG' || settings.duplexMode === 'DUPLEX'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-sm font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 text-xs font-medium'
                 }`}
               >
-                <span>📑</span> Double-Sided (Duplex)
+                <span className="text-base mb-0.5">📑</span>
+                <span className="text-xs font-bold">Flip Long Edge</span>
+                <span className="text-[10px] text-slate-400">Book / Report binding</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!supportsDuplex}
+                onClick={() => setSettings((s) => ({ ...s, duplexMode: 'DUPLEX_SHORT' }))}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 text-center transition-all ${
+                  !supportsDuplex
+                    ? 'opacity-40 cursor-not-allowed border-slate-200'
+                    : settings.duplexMode === 'DUPLEX_SHORT'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-sm font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 text-xs font-medium'
+                }`}
+              >
+                <span className="text-base mb-0.5">📋</span>
+                <span className="text-xs font-bold">Flip Short Edge</span>
+                <span className="text-[10px] text-slate-400">Calendar / Pad binding</span>
               </button>
             </div>
           </div>
@@ -187,9 +212,9 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                 onChange={(e: any) => setSettings((s) => ({ ...s, orientation: e.target.value }))}
                 className="w-full h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium text-sm focus:border-indigo-600 focus:outline-none"
               >
-                <option value="PORTRAIT">Portrait (Vertical)</option>
-                <option value="LANDSCAPE">Landscape (Horizontal)</option>
-                <option value="AUTO">Auto Detect</option>
+                <option value="AUTO">🔄 Auto Detect (Match Document)</option>
+                <option value="PORTRAIT">↕️ Portrait (Vertical)</option>
+                <option value="LANDSCAPE">↔️ Landscape (Horizontal)</option>
               </select>
             </div>
           </div>
@@ -207,14 +232,15 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
               >
                 <option value="A4">A4 (Standard 210 × 297 mm)</option>
                 <option value="A3">A3 (Large 297 × 420 mm)</option>
+                <option value="A5">A5 (Booklet / Small 148 × 210 mm)</option>
                 <option value="LETTER">US Letter (8.5 × 11 in)</option>
-                <option value="LEGAL">Legal (8.5 × 14 in)</option>
+                <option value="LEGAL">Legal / Court Paper (8.5 × 14 in)</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                Print Quality
+                Print Resolution & Quality
               </label>
               <select
                 value={settings.quality}
@@ -223,31 +249,86 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
               >
                 <option value="NORMAL">Standard Quality (600 DPI)</option>
                 <option value="HIGH">High Definition / Photo (1200 DPI)</option>
-                <option value="DRAFT">Draft / Eco Saver</option>
+                <option value="DRAFT">Draft / Eco Saver (300 DPI)</option>
               </select>
             </div>
           </div>
 
-          {/* 5. PAGE RANGE & TARGET CALCULATION */}
+          {/* 5. PAGE SELECTION & SUBSET (ALL / ODD / EVEN / CUSTOM) */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Page Range
+                5. Page Selection & Subset
               </label>
-              <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-md">
                 {effectivePages} of {fileMeta.pageCount} pages selected
               </span>
             </div>
-            <input
-              type="text"
-              placeholder="e.g. ALL or 1-5, 8, 11-14"
-              value={settings.pageRange}
-              onChange={(e) => setSettings((s) => ({ ...s, pageRange: e.target.value }))}
-              className="w-full h-11 px-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm focus:border-indigo-600 focus:outline-none"
-            />
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              Type <strong className="font-mono text-slate-600 dark:text-slate-300">ALL</strong> to print all pages, or comma-separated ranges like <strong className="font-mono text-slate-600 dark:text-slate-300">1-3, 5</strong>.
-            </p>
+
+            <div className="grid grid-cols-4 gap-2 mb-2.5">
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, pageSubset: 'ALL', pageRange: 'ALL' }))}
+                className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                  (settings.pageSubset === 'ALL' || !settings.pageSubset) && (!settings.pageRange || settings.pageRange === 'ALL')
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                All Pages
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, pageSubset: 'ODD', pageRange: 'ALL' }))}
+                className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                  settings.pageSubset === 'ODD'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Odd Pages
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, pageSubset: 'EVEN', pageRange: 'ALL' }))}
+                className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                  settings.pageSubset === 'EVEN'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Even Pages
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, pageSubset: 'ALL', pageRange: s.pageRange === 'ALL' ? '1-' + Math.min(fileMeta.pageCount, 2) : s.pageRange }))}
+                className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                  settings.pageRange && settings.pageRange !== 'ALL'
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+
+            {settings.pageRange !== 'ALL' && (
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  placeholder="e.g. 1-5, 8, 11-14"
+                  value={settings.pageRange}
+                  onChange={(e) => setSettings((s) => ({ ...s, pageRange: e.target.value }))}
+                  className="w-full h-11 px-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm focus:border-indigo-600 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  Type specific ranges like <strong className="font-mono text-slate-600 dark:text-slate-300">1-3, 5</strong>.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 6. SCALING & COLLATE */}
@@ -261,8 +342,9 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                 onChange={(e: any) => setSettings((s) => ({ ...s, scaling: e.target.value }))}
                 className="w-full h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium text-sm focus:border-indigo-600 focus:outline-none"
               >
-                <option value="FIT">Fit to Printable Margin</option>
-                <option value="ACTUAL">Actual 100% Size</option>
+                <option value="FIT">Fit to Printable Margin (Default)</option>
+                <option value="ACTUAL">Actual 100% Size (No Scale)</option>
+                <option value="SHRINK">Shrink Oversized Pages Only</option>
               </select>
             </div>
 
@@ -275,7 +357,7 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                   className="w-5 h-5 rounded-lg text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
                 />
                 <span className="ml-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Collate pages (1,2,3... 1,2,3...)
+                  Collate copies (1,2,3... 1,2,3...)
                 </span>
               </label>
             </div>

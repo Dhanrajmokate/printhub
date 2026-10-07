@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "description": "PrintHub - Online Printing Platform (Upload -> Pay -> Print -> Collect)",
   "scripts": {
+    "start": "node server/dist/index.js",
+    "build": "cd server && npm install && npm run build",
+    "build:server": "cd server && npm install && npm run build",
     "install:all": "npm install && cd server && npm install && cd ../printer-service && npm install && cd ../client && npm install",
     "db:setup": "cd server && npx prisma db push && npx tsx src/seed.ts",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "dev:printer": "cd printer-service && npm run dev",
-    "dev": "concurrently -n \"SERVER,CLIENT,PRINTER\" -c \"blue,green,magenta\" \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:printer\"",
-    "build": "cd server && npm run build && cd ../printer-service && npm run build && cd ../client && npm run build"
+    "dev": "concurrently -n \"SERVER,CLIENT,PRINTER\" -c \"blue,green,magenta\" \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:printer\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

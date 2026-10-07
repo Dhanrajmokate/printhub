@@ -54,3 +54,10 @@ Thumbs.db
 .idea/
 *.tmp
 ~$*
+
+# Large Binaries & Desktop Distribution
+*.exe
+shop-desktop/dist/
+shop-desktop/client-dist/
+client/public/downloads/*.exe
+

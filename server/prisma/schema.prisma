@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -124,7 +125,8 @@ model OrderItem {
   paperSize        String    @default("A4")       // "A4" | "A3" | "LETTER" | "LEGAL"
   quality          String    @default("NORMAL")   // "DRAFT" | "NORMAL" | "HIGH"
   pageRange        String    @default("ALL")
-  scaling          String    @default("FIT")      // "FIT" | "ACTUAL"
+  pageSubset       String    @default("ALL")      // "ALL" | "ODD" | "EVEN"
+  scaling          String    @default("FIT")      // "FIT" | "ACTUAL" | "SHRINK"
   collate          Boolean   @default(true)
   itemPrice        Float     @default(0.0)
   status           String    @default("PENDING")  // "PENDING" | "PRINTING" | "PRINTED" | "FAILED"

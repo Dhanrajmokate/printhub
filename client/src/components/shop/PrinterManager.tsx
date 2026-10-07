@@ -5,6 +5,7 @@ import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
 import { SkeletonShimmer } from '../common/SkeletonShimmer.js';
 import { EmptyState } from '../common/EmptyState.js';
+import { PrintAttributeTesterModal } from './PrintAttributeTesterModal.js';
 
 export const PrinterManager: React.FC = () => {
   const [printers, setPrinters] = useState<PrinterType[]>([]);
@@ -12,6 +13,7 @@ export const PrinterManager: React.FC = () => {
   const [isPinging, setIsPinging] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isAttributeTesterOpen, setIsAttributeTesterOpen] = useState(false);
 
   // New Printer form state
   const [name, setName] = useState('');
@@ -21,6 +23,13 @@ export const PrinterManager: React.FC = () => {
   const [autoConvert, setAutoConvert] = useState(true);
 
   const { showToast } = useToast();
+
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+  const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
+  const [defaultSystemPrinter, setDefaultSystemPrinter] = useState<string>('');
+  const [selectedBwPrinter, setSelectedBwPrinter] = useState<string>('');
+  const [selectedColorPrinter, setSelectedColorPrinter] = useState<string>('');
+  const [isTestPrinting, setIsTestPrinting] = useState<boolean>(false);
 
   const fetchPrinters = async () => {
     setIsLoading(true);
@@ -38,7 +47,60 @@ export const PrinterManager: React.FC = () => {
 
   useEffect(() => {
     fetchPrinters();
-  }, []);
+
+    if (isElectron && window.electronAPI?.getSystemPrinters) {
+      window.electronAPI.getSystemPrinters().then((res) => {
+        if (res?.success && res.printers) {
+          setSystemPrinters(res.printers);
+          if (res.defaultPrinter) setDefaultSystemPrinter(res.defaultPrinter);
+        }
+      });
+      if (window.electronAPI?.getConfig) {
+        window.electronAPI.getConfig().then((cfg) => {
+          if (cfg?.bwPrinter) setSelectedBwPrinter(cfg.bwPrinter);
+          if (cfg?.colorPrinter) setSelectedColorPrinter(cfg.colorPrinter);
+        });
+      }
+    }
+  }, [isElectron]);
+
+  const handlePrintTestPage = async (printerName?: string) => {
+    setIsTestPrinting(true);
+    try {
+      if (isElectron && window.electronAPI?.printJob) {
+        const target = printerName || selectedBwPrinter || defaultSystemPrinter;
+        await window.electronAPI.printJob({
+          orderNumber: 'TEST-PAGE',
+          originalFileName: 'PrintHub_Physical_Hardware_Test.pdf',
+          localPath: 'c:\\Users\\rahul\\OneDrive\\Desktop\\smart print\\PrintHub_IEEE_Research_Paper.pdf',
+          printerName: target || undefined,
+          copies: 1,
+          colorMode: 'BW',
+          duplexMode: 'SINGLE',
+          paperSize: 'A4',
+          pageRange: '1'
+        });
+        showToast('success', 'Physical Print Sent!', `Test page spooled to ${target || 'Default Printer'}`);
+      } else {
+        showToast('info', 'Web Mode', 'Test page simulation recorded.');
+      }
+    } catch (err: any) {
+      showToast('error', 'Test Print Error', err.message || 'Could not send test page');
+    } finally {
+      setIsTestPrinting(false);
+    }
+  };
+
+  const handleUpdatePrinterConfig = async (key: 'bwPrinter' | 'colorPrinter', value: string) => {
+    if (key === 'bwPrinter') setSelectedBwPrinter(value);
+    if (key === 'colorPrinter') setSelectedColorPrinter(value);
+
+    if (isElectron && window.electronAPI?.saveConfig) {
+      const cfg = await window.electronAPI.getConfig();
+      await window.electronAPI.saveConfig({ ...cfg, [key]: value });
+      showToast('success', 'Setting Saved', `${key === 'bwPrinter' ? 'B&W' : 'Color'} printer mapped to ${value || 'Default'}`);
+    }
+  };
 
   const handlePingAll = async () => {
     setIsPinging(true);
@@ -134,6 +196,91 @@ export const PrinterManager: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Native Desktop Physical Printers Section */}
+      {isElectron && (
+        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 text-white space-y-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <Printer className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Physical Windows Printers Detected</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px] font-bold border border-emerald-800">
+                    Live Spooler
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {systemPrinters.length} printer(s) linked via Windows Print Spooler (winspool.drv).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAttributeTesterOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/25 flex items-center gap-2"
+                title="Test all granular print attributes (Duplex, Colors, Paper Sizes, Margins, Copies)"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>🧪 Test All Attributes</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handlePrintTestPage()}
+                disabled={isTestPrinting}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/25 flex items-center gap-2 disabled:opacity-50"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>{isTestPrinting ? 'Printing Test Page...' : 'Quick Test Page'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Connected printers dropdowns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1.5">
+              <label className="block text-slate-300 font-bold uppercase text-[10px] tracking-wider">
+                Default B&amp;W Printer:
+              </label>
+              <select
+                value={selectedBwPrinter}
+                onChange={(e) => handleUpdatePrinterConfig('bwPrinter', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                <option value="">Windows Default ({defaultSystemPrinter || 'Default'})</option>
+                {systemPrinters.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} {p.isPhysical ? '🖨️ (Physical)' : '📄 (Virtual)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-slate-300 font-bold uppercase text-[10px] tracking-wider">
+                Default Color Printer:
+              </label>
+              <select
+                value={selectedColorPrinter}
+                onChange={(e) => handleUpdatePrinterConfig('colorPrinter', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                <option value="">Windows Default ({defaultSystemPrinter || 'Default'})</option>
+                {systemPrinters.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} {p.isPhysical ? '🖨️ (Physical)' : '📄 (Virtual)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Desktop Print Agent Status & Setup Card */}
       <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -465,6 +612,14 @@ export const PrinterManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Print Attribute Tester Modal */}
+      <PrintAttributeTesterModal
+        isOpen={isAttributeTesterOpen}
+        onClose={() => setIsAttributeTesterOpen(false)}
+        systemPrinters={systemPrinters}
+        defaultPrinter={defaultSystemPrinter}
+      />
     </div>
   );
 };

@@ -95,13 +95,14 @@ export type ItemStatus = 'PENDING' | 'PRINTING' | 'PRINTED' | 'FAILED';
 
 export interface PrintSettings {
   colorMode: 'BW' | 'COLOR';
-  duplexMode: 'SINGLE' | 'DUPLEX';
+  duplexMode: 'SINGLE' | 'DUPLEX_LONG' | 'DUPLEX_SHORT' | 'DUPLEX';
   copies: number;
   orientation: 'PORTRAIT' | 'LANDSCAPE' | 'AUTO';
-  paperSize: 'A4' | 'A3' | 'LETTER' | 'LEGAL';
+  paperSize: 'A4' | 'A3' | 'A5' | 'LETTER' | 'LEGAL';
   quality: 'DRAFT' | 'NORMAL' | 'HIGH';
   pageRange: string;
-  scaling: 'FIT' | 'ACTUAL';
+  pageSubset?: 'ALL' | 'ODD' | 'EVEN';
+  scaling: 'FIT' | 'ACTUAL' | 'SHRINK';
   collate: boolean;
 }
 
@@ -140,6 +141,7 @@ export interface OrderItem {
   paperSize: string;
   quality: string;
   pageRange: string;
+  pageSubset?: string;
   scaling: string;
   collate: boolean;
   itemPrice: number;
@@ -171,4 +173,17 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+}
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      getSystemPrinters: () => Promise<any[]>;
+      printJob: (jobData: any) => Promise<any>;
+      getConfig: () => Promise<any>;
+      saveConfig: (config: any) => Promise<boolean>;
+      reloadApp?: () => Promise<any>;
+      openProofFolder: () => Promise<void>;
+    };
+  }
 }

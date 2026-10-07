@@ -110,7 +110,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 // Start Server
-app.listen(config.port, () => {
+app.listen(config.port, '0.0.0.0', () => {
   console.log(`=================================================`);
   console.log(`🚀 PrintHub Backend Server running on Port ${config.port}`);
   console.log(`🌐 Environment: ${config.nodeEnv}`);

@@ -40,9 +40,33 @@ export const QueueDashboard: React.FC = () => {
     fetchQueue();
 
     // SSE listeners for live new orders and status changes
-    const unsubNewOrder = sseClient.on('new_order', (data: any) => {
-      showToast('info', 'New Print Order Received!', `Order #${data.orderNumber} from ${data.customerName} (₹${data.totalAmount.toFixed(2)})`);
-      fetchQueue();
+    const unsubNewOrder = sseClient.on('new_order', async (data: any) => {
+      showToast('info', 'New Print Order Received!', `Order #${data.orderNumber} from ${data.customerName} (₹${data.totalAmount?.toFixed(2) || '0.00'})`);
+      
+      try {
+        const res = await api.get('/orders/shop/queue');
+        if (res.data.success) {
+          setQueueOrders(res.data.queue);
+          setHistoryOrders(res.data.history);
+
+          // Check if native Desktop Auto-Print is active
+          if (typeof window !== 'undefined' && window.electronAPI?.getConfig) {
+            const cfg = await window.electronAPI.getConfig().catch(() => null);
+            if (cfg?.autoPrint) {
+              const targetOrder = res.data.queue.find((o: Order) => o.id === data.orderId || o.orderNumber === data.orderNumber);
+              if (targetOrder?.items) {
+                for (const item of targetOrder.items) {
+                  if (item.status === 'PENDING') {
+                    handleManualPrint(targetOrder.id, item.id, item.originalFileName);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        fetchQueue();
+      }
     });
 
     const unsubQueue = sseClient.on('queue_updated', () => {
@@ -59,6 +83,26 @@ export const QueueDashboard: React.FC = () => {
     setPrintingItemId(itemId);
     try {
       const res = await api.post(`/orders/${orderId}/items/${itemId}/print`);
+
+      // If running inside native Electron Desktop App, dispatch directly to physical hardware!
+      if (typeof window !== 'undefined' && window.electronAPI?.printJob) {
+        const itemResult = res.data?.result;
+        if (itemResult) {
+          await window.electronAPI.printJob({
+            orderNumber: res.data?.orderNumber || 'ORD',
+            originalFileName: itemTitle,
+            fileUrl: itemResult.fileUrl || `http://localhost:8000/uploads/raw/${itemResult.storedFileName}`,
+            copies: itemResult.copies || 1,
+            colorMode: itemResult.colorMode || 'BW',
+            duplexMode: itemResult.duplexMode || 'SINGLE',
+            paperSize: itemResult.paperSize || 'A4',
+            pageRange: itemResult.pageRange || 'ALL',
+            scaling: itemResult.scaling || 'fit',
+            orientation: itemResult.orientation || 'portrait'
+          }).catch((e) => console.warn('[Desktop Spooler] Physical dispatch:', e));
+        }
+      }
+
       if (res.data.success) {
         showToast('success', 'Print Job Completed', `${itemTitle} spooled to ${res.data.result?.printerName || 'Printer'}`);
         fetchQueue();
@@ -258,12 +302,32 @@ export const QueueDashboard: React.FC = () => {
                                   {item.colorMode === 'COLOR' ? '🎨 Color (8002)' : '⬛ B&W (8001)'}
                                 </span>
                                 <span>•</span>
-                                <span>{item.duplexMode === 'DUPLEX' ? 'Duplex' : '1-Sided'}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  {item.duplexMode === 'DUPLEX_SHORT'
+                                    ? 'Duplex (Short Edge)'
+                                    : item.duplexMode === 'DUPLEX_LONG' || item.duplexMode === 'DUPLEX'
+                                    ? 'Duplex (Long Edge)'
+                                    : '1-Sided'}
+                                </span>
                                 <span>•</span>
                                 <span>{item.paperSize}</span>
                                 <span>•</span>
                                 <span>{item.calculatedPages} pgs × {item.copies} {item.copies === 1 ? 'copy' : 'copies'}</span>
+                                {item.pageSubset && item.pageSubset !== 'ALL' && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">
+                                      {item.pageSubset === 'ODD' ? 'Odd Pgs' : 'Even Pgs'}
+                                    </span>
+                                  </>
+                                )}
                                 {item.pageRange !== 'ALL' && <span>• Range: {item.pageRange}</span>}
+                                {item.scaling && item.scaling !== 'FIT' && (
+                                  <span>• {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}</span>
+                                )}
+                                {item.orientation && item.orientation !== 'AUTO' && (
+                                  <span>• {item.orientation === 'LANDSCAPE' ? 'Landscape' : 'Portrait'}</span>
+                                )}
                               </div>
                             </div>
                           </div>

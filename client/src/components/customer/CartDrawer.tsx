@@ -135,12 +135,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </span>
 
                       <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                        {item.settings.duplexMode === 'DUPLEX' ? 'Duplex (2-Sided)' : '1-Sided'}
+                        {item.settings.duplexMode === 'DUPLEX_LONG'
+                          ? 'Duplex (Long Edge)'
+                          : item.settings.duplexMode === 'DUPLEX_SHORT'
+                          ? 'Duplex (Short Edge)'
+                          : item.settings.duplexMode === 'DUPLEX'
+                          ? 'Duplex'
+                          : '1-Sided'}
                       </span>
 
                       <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                         {item.settings.paperSize}
                       </span>
+
+                      {item.settings.pageSubset && item.settings.pageSubset !== 'ALL' && (
+                        <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                          {item.settings.pageSubset === 'ODD' ? 'Odd Pages Only' : 'Even Pages Only'}
+                        </span>
+                      )}
 
                       {item.settings.pageRange !== 'ALL' && (
                         <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">

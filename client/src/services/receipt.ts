@@ -102,7 +102,16 @@ export function generateReceiptPdf(order: Order) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(`${item.paperSize} | ${item.orientation} | ${item.duplexMode} | Range: ${item.pageRange}`, 30, y + 9);
+    const duplexLabel = item.duplexMode === 'DUPLEX_SHORT' 
+      ? 'Duplex (Short Edge)' 
+      : (item.duplexMode === 'DUPLEX_LONG' || item.duplexMode === 'DUPLEX') 
+        ? 'Duplex (Long Edge)' 
+        : '1-Sided';
+    const subsetLabel = item.pageSubset && item.pageSubset !== 'ALL' 
+      ? ` | ${item.pageSubset === 'ODD' ? 'Odd Pgs' : 'Even Pgs'}` 
+      : '';
+    const scaleLabel = item.scaling && item.scaling !== 'FIT' ? ` | ${item.scaling}` : '';
+    doc.text(`${item.paperSize} | ${item.orientation || 'Auto'} | ${duplexLabel}${subsetLabel}${scaleLabel} | Range: ${item.pageRange}`, 30, y + 9);
 
     // Color mode badge text
     doc.setTextColor(item.colorMode === 'COLOR' ? 190 : 30, item.colorMode === 'COLOR' ? 24 : 41, item.colorMode === 'COLOR' ? 93 : 59);

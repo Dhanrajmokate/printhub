@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Heart, Shield, Zap, Sparkles } from 'lucide-react';
+import { Printer, Heart, Shield, Zap, Sparkles, Download } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -17,13 +17,22 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-xs text-slate-500 dark:text-slate-400 font-medium">
-          <span className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-5 text-xs font-medium">
+          <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
             <Zap className="w-3.5 h-3.5 text-amber-500" /> Instant Spooling
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
             <Shield className="w-3.5 h-3.5 text-emerald-500" /> ₹100 Welcome Bonus
           </span>
+          <a
+            href="/downloads/PrintHub-Shop-Setup.exe"
+            download="PrintHub-Shop-Setup.exe"
+            className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+            title="Download Standalone Desktop App for Print Shopkeepers (.exe)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download Desktop App (.exe)</span>
+          </a>
         </div>
 
         <p className="text-xs text-slate-400 dark:text-slate-500">

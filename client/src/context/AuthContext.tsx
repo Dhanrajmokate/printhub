@@ -30,10 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize from sessionStorage (per-tab isolation)
+  // Initialize from sessionStorage or localStorage (desktop app persistence)
   useEffect(() => {
-    const savedToken = sessionStorage.getItem('printhub_token');
-    const savedUser = sessionStorage.getItem('printhub_user');
+    const savedToken = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
+    const savedUser = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
 
     if (savedToken && savedUser) {
       try {
@@ -43,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         sessionStorage.removeItem('printhub_token');
         sessionStorage.removeItem('printhub_user');
+        localStorage.removeItem('printhub_token');
+        localStorage.removeItem('printhub_user');
       }
     }
     setIsLoading(false);
@@ -72,6 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(receivedUser);
         sessionStorage.setItem('printhub_token', receivedToken);
         sessionStorage.setItem('printhub_user', JSON.stringify(receivedUser));
+        localStorage.setItem('printhub_token', receivedToken);
+        localStorage.setItem('printhub_user', JSON.stringify(receivedUser));
         sseClient.connect();
         return { success: true };
       }
@@ -142,6 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sseClient.disconnect();
     sessionStorage.removeItem('printhub_token');
     sessionStorage.removeItem('printhub_user');
+    localStorage.removeItem('printhub_token');
+    localStorage.removeItem('printhub_user');
     setToken(null);
     setUser(null);
   };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Printer, UploadCloud, CreditCard, PackageCheck, Sparkles, ArrowRight, ShieldCheck, CheckCircle2, Zap, Store, Sliders, FileText } from 'lucide-react';
+import { Printer, UploadCloud, CreditCard, PackageCheck, Sparkles, ArrowRight, ShieldCheck, CheckCircle2, Zap, Store, Sliders, FileText, Download, Monitor, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 
 export const LandingPage: React.FC = () => {
@@ -86,6 +86,16 @@ export const LandingPage: React.FC = () => {
                 <Store className="w-4 h-4 text-purple-600" />
                 <span>Demo Shop (8001/8002)</span>
               </button>
+
+              <a
+                href="/downloads/PrintHub-Shop-Setup.exe"
+                download="PrintHub-Shop-Setup.exe"
+                className="px-5 py-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                title="Download Standalone Windows Desktop App (.exe)"
+              >
+                <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Download Desktop App (.exe)</span>
+              </a>
             </>
           )}
         </div>
@@ -279,6 +289,55 @@ export const LandingPage: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Watch real-time progress via Server-Sent Events, download official PDF receipt slips, and collect your orders with zero wait.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Shop Partner Desktop App Download Section */}
+      <section className="max-w-5xl mx-auto px-4 pb-4">
+        <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="space-y-3 text-center md:text-left max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
+              <Monitor className="w-3.5 h-3.5" />
+              <span>For Print Shop Owners &amp; Vendors</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
+              PrintHub Shop Partner for Windows
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Run your Xerox shop on autopilot. Download the standalone Windows app to connect directly with your USB and Wi-Fi printers, enable hands-free <strong>Auto-Print</strong>, and receive live audio order alerts.
+            </p>
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-indigo-200/90 pt-1">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                Zero Setup (No npm or command line)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                HP, Canon, Epson &amp; Brother Support
+              </span>
+            </div>
+            {/* SmartScreen friendly hint */}
+            <div className="p-3 rounded-2xl bg-indigo-950/60 border border-indigo-800/60 text-indigo-200 text-[11px] flex items-start gap-2 text-left">
+              <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Windows Notice:</strong> If Windows SmartScreen shows <em>"Windows protected your PC"</em>, click <strong>More info</strong> &rarr; <strong>Run anyway</strong>.
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0 w-full sm:w-auto">
+            <a
+              href="/downloads/PrintHub-Shop-Setup.exe"
+              download="PrintHub-Shop-Setup.exe"
+              className="px-6 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2.5 text-center group"
+            >
+              <Download className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
+              <span>Download for Windows (.exe)</span>
+            </a>
+            <span className="text-[11px] text-slate-400 text-center font-mono">
+              v1.0.0 &bull; Windows 10/11 &bull; 64-bit
+            </span>
           </div>
         </div>
       </section>

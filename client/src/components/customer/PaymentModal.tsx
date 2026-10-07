@@ -118,7 +118,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (isDirectTest = false) => {
     if (!selectedShop) {
       setErrorMessage('Please select a print shop before checking out.');
       return;
@@ -158,46 +158,57 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         const rzpOrder = rzpRes.data.order;
         const rzpKey = rzpRes.data.keyId;
 
-        if (!(window as any).Razorpay) {
-          throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
-        }
+        let paymentSuccess: { paymentId: string; orderId: string; signature: string };
 
-        const paymentSuccess = await new Promise<{ paymentId: string; orderId: string; signature: string }>((resolve, reject) => {
-          const options = {
-            key: rzpKey,
-            amount: rzpOrder.amount,
-            currency: rzpOrder.currency || 'INR',
-            name: 'PrintHub',
-            description: `Print Order for ${selectedShop.name}`,
-            order_id: rzpOrder.id,
-            prefill: {
-              name: user?.name || '',
-              email: user?.email || '',
-              contact: user?.phone || ''
-            },
-            theme: {
-              color: '#4f46e5'
-            },
-            modal: {
-              ondismiss: () => {
-                reject(new Error('Payment was cancelled by user.'));
-              }
-            },
-            handler: (response: any) => {
-              resolve({
-                paymentId: response.razorpay_payment_id,
-                orderId: response.razorpay_order_id,
-                signature: response.razorpay_signature
-              });
-            }
+        if (isDirectTest) {
+          // Instant direct test payment (skips QR and external popup)
+          paymentSuccess = {
+            paymentId: `pay_mock_${Date.now()}`,
+            orderId: rzpOrder.id,
+            signature: `mock_sig_${Date.now()}`
           };
+        } else {
+          if (!(window as any).Razorpay) {
+            throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+          }
 
-          const rzp = new (window as any).Razorpay(options);
-          rzp.on('payment.failed', (resp: any) => {
-            reject(new Error(resp.error?.description || 'Payment failed'));
+          paymentSuccess = await new Promise<{ paymentId: string; orderId: string; signature: string }>((resolve, reject) => {
+            const options = {
+              key: rzpKey,
+              amount: rzpOrder.amount,
+              currency: rzpOrder.currency || 'INR',
+              name: 'PrintHub',
+              description: `Print Order for ${selectedShop.name}`,
+              order_id: rzpOrder.id,
+              prefill: {
+                name: user?.name || '',
+                email: user?.email || '',
+                contact: user?.phone || ''
+              },
+              theme: {
+                color: '#4f46e5'
+              },
+              modal: {
+                ondismiss: () => {
+                  reject(new Error('Payment was cancelled by user.'));
+                }
+              },
+              handler: (response: any) => {
+                resolve({
+                  paymentId: response.razorpay_payment_id,
+                  orderId: response.razorpay_order_id,
+                  signature: response.razorpay_signature
+                });
+              }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', (resp: any) => {
+              reject(new Error(resp.error?.description || 'Payment failed'));
+            });
+            rzp.open();
           });
-          rzp.open();
-        });
+        }
 
         // Verify payment signature on backend
         await api.post('/payment/verify', {
@@ -222,6 +233,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         paperSize: item.settings.paperSize,
         quality: item.settings.quality,
         pageRange: item.settings.pageRange,
+        pageSubset: item.settings.pageSubset || 'ALL',
         scaling: item.settings.scaling,
         collate: item.settings.collate
       }));
@@ -665,6 +677,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <span className="font-mono font-black text-indigo-600 dark:text-indigo-400 text-sm">
                 ₹{subtotal.toFixed(2)}
               </span>
+            </div>
+
+            {/* Direct 1-Click Test Payment (Skip QR / Instant Approval) */}
+            <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 rounded-2xl border-2 border-amber-300 dark:border-amber-700/60 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-extrabold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  Direct 1-Click Pay (No QR / No Scan Needed)
+                </span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+                  Direct Test
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                Want to pay directly without scanning any QR code or opening external popups? Click below:
+              </p>
+              <button
+                type="button"
+                onClick={() => handleCheckout(true)}
+                disabled={isProcessing}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>⚡ Pay ₹{subtotal.toFixed(2)} Directly (Instant Approval)</span>
+              </button>
             </div>
           </div>
         )}

@@ -47,7 +47,7 @@ export async function routePrintJob(params: {
   orderNumber: string;
   itemId: string;
   colorMode: 'BW' | 'COLOR';
-  duplexMode: 'SINGLE' | 'DUPLEX';
+  duplexMode: string;
   storedFileName: string;
   originalFileName: string;
   copies: number;
@@ -55,6 +55,7 @@ export async function routePrintJob(params: {
   paperSize: string;
   quality: string;
   pageRange: string;
+  pageSubset?: string;
   scaling: string;
   collate: boolean;
 }) {
@@ -102,6 +103,7 @@ export async function routePrintJob(params: {
     paperSize: params.paperSize,
     quality: params.quality,
     pageRange: params.pageRange,
+    pageSubset: params.pageSubset || 'ALL',
     scaling: params.scaling,
     collate: params.collate,
     autoConvert: selectedPrinter.autoConvert
@@ -112,7 +114,7 @@ export async function routePrintJob(params: {
     const printResponse = await axios.post(
       `http://localhost:${selectedPrinter.port}/print`,
       payload,
-      { timeout: 8000 }
+      { timeout: 20000 }
     );
 
     return {

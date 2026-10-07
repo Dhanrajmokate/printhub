@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrintHub Shop Partner — Desktop Print Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .pulse-ring { animation: pulse-ring 2s infinite; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top App Bar -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-black tracking-tight text-white">PrintHub Shop Partner</h1>
+          <span class="px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-bold uppercase tracking-wider">
+            Desktop Spooler
+          </span>
+        </div>
+        <p id="shopNameSub" class="text-xs text-slate-400">Connecting to print network...</p>
+      </div>
+    </div>
+
+    <!-- Center Status & Auto-Print Switch -->
+    <div class="flex items-center gap-4 bg-slate-950/60 border border-slate-800 rounded-2xl px-4 py-2">
+      <!-- Auto Print Toggle -->
+      <label class="flex items-center gap-2.5 cursor-pointer select-none">
+        <div class="relative">
+          <input type="checkbox" id="autoPrintToggle" class="sr-only">
+          <div class="block bg-slate-800 w-11 h-6 rounded-full border border-slate-700 transition"></div>
+          <div id="toggleDot" class="dot absolute left-1 top-1 bg-slate-400 w-4 h-4 rounded-full transition transform"></div>
+        </div>
+        <div class="text-left">
+          <span class="text-xs font-bold block leading-none text-slate-200">Auto-Print Orders</span>
+          <span id="autoPrintStatusText" class="text-[10px] text-slate-400">OFF (Manual Click)</span>
+        </div>
+      </label>
+
+      <span class="h-6 w-px bg-slate-800"></span>
+
+      <!-- Sound Toggle -->
+      <button id="soundToggleBtn" class="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition">
+        <span id="soundIcon">🔔</span>
+        <span id="soundLabel">Sound ON</span>
+      </button>
+
+      <span class="h-6 w-px bg-slate-800"></span>
+
+      <!-- Backend Server Status Indicator -->
+      <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+        <span id="backendDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-ring"></span>
+        <span id="backendStatusText" class="text-[11px] font-mono text-emerald-400">Online</span>
+      </div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="flex items-center gap-2">
+      <button id="refreshQueueBtn" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        <span>Refresh</span>
+      </button>
+
+      <button id="openProofFolderBtn" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm" title="Open printed output directory">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+        <span>Proofs</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hardware Printer Mapping Banner -->
+  <div class="bg-slate-900/60 border-b border-slate-800/80 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+      <span class="font-bold text-slate-300">Mapped Physical Printers:</span>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="flex items-center gap-2">
+        <label class="font-semibold text-slate-400">⬛ B&W Laser:</label>
+        <select id="bwPrinterSelect" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[200px]">
+          <option value="">Auto-Detecting Windows Printers...</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <label class="font-semibold text-slate-400">🎨 Color Jet:</label>
+        <select id="colorPrinterSelect" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[200px]">
+          <option value="">Auto-Detecting Windows Printers...</option>
+        </select>
+      </div>
+
+      <button id="savePrintersBtn" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-sm">
+        Save Mappings
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-6 space-y-6">
+
+    <!-- Tab Navigation -->
+    <div class="flex border-b border-slate-800 gap-2">
+      <button id="tabQueueBtn" class="pb-3 px-4 text-xs font-bold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>Live FIFO Print Queue</span>
+        <span id="queueBadge" class="px-2 py-0.2 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-bold">0</span>
+      </button>
+
+      <button id="tabHistoryBtn" class="pb-3 px-4 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>Completed Orders</span>
+      </button>
+
+      <button id="tabSettingsBtn" class="pb-3 px-4 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        <span>App Settings & Cloud URL</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: LIVE FIFO QUEUE -->
+    <section id="panelQueue" class="space-y-4">
+      <div id="queueEmptyState" class="p-12 text-center rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
+        <div class="w-12 h-12 rounded-2xl bg-slate-800 text-slate-500 mx-auto flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <h3 class="font-bold text-base text-slate-200">Print Queue is Clear</h3>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto">No pending orders right now. When a customer places an order on your website, it will ding and appear here immediately.</p>
+      </div>
+
+      <div id="ordersContainer" class="space-y-4 hidden"></div>
+    </section>
+
+    <!-- TAB 2: COMPLETED ORDERS -->
+    <section id="panelHistory" class="space-y-4 hidden">
+      <div class="p-5 rounded-3xl bg-slate-900 border border-slate-800 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[11px]">
+              <th class="pb-3 font-bold">Order #</th>
+              <th class="pb-3 font-bold">Customer</th>
+              <th class="pb-3 font-bold">Items</th>
+              <th class="pb-3 font-bold">Amount</th>
+              <th class="pb-3 font-bold">Status</th>
+              <th class="pb-3 font-bold">Completed Time</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800/60 text-slate-300"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: APP SETTINGS -->
+    <section id="panelSettings" class="space-y-4 hidden">
+      <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 max-w-2xl space-y-5">
+        <div>
+          <h2 class="text-base font-black text-white">Desktop Application Settings</h2>
+          <p class="text-xs text-slate-400 mt-1">Configure where this desktop app connects to pull print orders.</p>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Backend API URL:</label>
+            <input type="text" id="settingBackendUrl" placeholder="http://localhost:8000 or https://printhub.onrender.com" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+            <span class="text-[11px] text-slate-500 mt-1 block">Set to your Render live cloud URL or local development server.</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Shop Email:</label>
+              <input type="email" id="settingShopEmail" value="shop@printhub.com" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Shop Password:</label>
+              <input type="password" id="settingShopPassword" value="password123" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white">
+            </div>
+          </div>
+
+          <button id="saveSettingsBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition">
+            Save & Reconnect
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Photo Proof Lightbox Modal -->
+  <div id="photoProofModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between p-4 border-b border-slate-800">
+        <h3 class="font-bold text-sm text-white">Payment Screenshot Proof</h3>
+        <button id="closePhotoProofBtn" class="text-slate-400 hover:text-white p-1">✕</button>
+      </div>
+      <div class="p-4 bg-slate-950 flex items-center justify-center max-h-[65vh] overflow-auto">
+        <img id="modalProofImg" src="" class="max-h-[60vh] max-w-full object-contain rounded-xl shadow-lg">
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Element for Order Chime -->
+  <audio id="orderChimeAudio" preload="auto">
+    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWE2N1+c0+O5blE5W5LL5s1xVTxZjdLp0m9YPUyKx97Sb1lBT4nC2s1rWT1OgLzWzWldQEmAutfNbFw/SIK9181rWz9IgL3XzWtbP0iAvdfNa1s/SIC9181rWz9IgL3XzWtbPw==" type="audio/wav">
+  </audio>
+
+  <script src="app.js"></script>
+</body>
+</html>

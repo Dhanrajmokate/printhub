@@ -276,12 +276,32 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
                   <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                     <span>{item.colorMode === 'COLOR' ? '🎨 Color' : '⬛ B&W'}</span>
                     <span>•</span>
-                    <span>{item.duplexMode === 'DUPLEX' ? '2-Sided' : '1-Sided'}</span>
+                    <span>
+                      {item.duplexMode === 'DUPLEX_SHORT'
+                        ? '2-Sided (Short Edge)'
+                        : item.duplexMode === 'DUPLEX_LONG' || item.duplexMode === 'DUPLEX'
+                        ? '2-Sided (Long Edge)'
+                        : '1-Sided'}
+                    </span>
                     <span>•</span>
                     <span>{item.paperSize}</span>
                     <span>•</span>
                     <span>{item.calculatedPages} pgs × {item.copies} {item.copies === 1 ? 'copy' : 'copies'}</span>
+                    {item.pageSubset && item.pageSubset !== 'ALL' && (
+                      <>
+                        <span>•</span>
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">
+                          {item.pageSubset === 'ODD' ? 'Odd Pages Only' : 'Even Pages Only'}
+                        </span>
+                      </>
+                    )}
                     {item.pageRange !== 'ALL' && <span>• Range: {item.pageRange}</span>}
+                    {item.scaling && item.scaling !== 'FIT' && (
+                      <span>• {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}</span>
+                    )}
+                    {item.orientation && item.orientation !== 'AUTO' && (
+                      <span>• {item.orientation === 'LANDSCAPE' ? 'Landscape' : 'Portrait'}</span>
+                    )}
                   </div>
                 </div>
               </div>

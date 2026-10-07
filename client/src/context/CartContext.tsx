@@ -20,45 +20,65 @@ export const defaultPrintSettings: PrintSettings = {
   colorMode: 'BW',
   duplexMode: 'SINGLE',
   copies: 1,
-  orientation: 'PORTRAIT',
+  orientation: 'AUTO',
   paperSize: 'A4',
   quality: 'NORMAL',
   pageRange: 'ALL',
+  pageSubset: 'ALL',
   scaling: 'FIT',
   collate: true
 };
 
-export function parsePageRange(totalPages: number, pageRange?: string): number {
-  if (!pageRange || pageRange.trim().toUpperCase() === 'ALL') {
-    return Math.max(1, totalPages);
-  }
+export function parsePageRange(
+  totalPages: number,
+  pageRange?: string,
+  pageSubset?: 'ALL' | 'ODD' | 'EVEN'
+): number {
+  let candidates = new Set<number>();
+  const isAllPages = !pageRange || pageRange.trim().toUpperCase() === 'ALL';
 
-  const pagesSet = new Set<number>();
-  const parts = pageRange.split(',');
+  if (isAllPages) {
+    for (let i = 1; i <= Math.max(1, totalPages); i++) {
+      candidates.add(i);
+    }
+  } else {
+    const parts = pageRange.split(',');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.includes('-')) {
+        const [startStr, endStr] = trimmed.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
 
-  for (const part of parts) {
-    const trimmed = part.trim();
-    if (trimmed.includes('-')) {
-      const [startStr, endStr] = trimmed.split('-');
-      const start = parseInt(startStr, 10);
-      const end = parseInt(endStr, 10);
-
-      if (!isNaN(start) && !isNaN(end)) {
-        const min = Math.max(1, Math.min(start, end));
-        const max = Math.min(totalPages, Math.max(start, end));
-        for (let i = min; i <= max; i++) {
-          pagesSet.add(i);
+        if (!isNaN(start) && !isNaN(end)) {
+          const min = Math.max(1, Math.min(start, end));
+          const max = Math.min(totalPages, Math.max(start, end));
+          for (let i = min; i <= max; i++) {
+            candidates.add(i);
+          }
         }
-      }
-    } else {
-      const page = parseInt(trimmed, 10);
-      if (!isNaN(page) && page >= 1 && page <= totalPages) {
-        pagesSet.add(page);
+      } else {
+        const page = parseInt(trimmed, 10);
+        if (!isNaN(page) && page >= 1 && page <= totalPages) {
+          candidates.add(page);
+        }
       }
     }
   }
 
-  return pagesSet.size > 0 ? pagesSet.size : Math.max(1, totalPages);
+  if (candidates.size === 0) {
+    for (let i = 1; i <= Math.max(1, totalPages); i++) {
+      candidates.add(i);
+    }
+  }
+
+  if (pageSubset === 'ODD') {
+    candidates = new Set([...candidates].filter((p) => p % 2 !== 0));
+  } else if (pageSubset === 'EVEN') {
+    candidates = new Set([...candidates].filter((p) => p % 2 === 0));
+  }
+
+  return Math.max(1, candidates.size);
 }
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -90,7 +110,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     customShop?: Shop | null
   ) => {
     const activeShop = customShop !== undefined ? customShop : selectedShop;
-    const effectivePages = parsePageRange(fileMeta.pageCount || 1, settings.pageRange);
+    const effectivePages = parsePageRange(fileMeta.pageCount || 1, settings.pageRange, settings.pageSubset);
     const validCopies = Math.max(1, Math.floor(settings.copies || 1));
 
     // Default shop rates fallback
@@ -100,10 +120,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const colorDuplex = activeShop?.rates?.colorDuplexRate ?? activeShop?.colorDuplexRate ?? 18.0;
 
     let unitPrice = 0;
+    const isDuplex =
+      settings.duplexMode === 'DUPLEX' ||
+      settings.duplexMode === 'DUPLEX_LONG' ||
+      settings.duplexMode === 'DUPLEX_SHORT';
+
     if (settings.colorMode === 'COLOR') {
-      unitPrice = settings.duplexMode === 'DUPLEX' ? colorDuplex / 2 : colorSingle;
+      unitPrice = isDuplex ? colorDuplex / 2 : colorSingle;
     } else {
-      unitPrice = settings.duplexMode === 'DUPLEX' ? bwDuplex / 2 : bwSingle;
+      unitPrice = isDuplex ? bwDuplex / 2 : bwSingle;
     }
 
     const rawTotal = unitPrice * effectivePages * validCopies;
@@ -126,6 +151,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       s1.paperSize === s2.paperSize &&
       s1.quality === s2.quality &&
       (s1.pageRange || 'ALL').trim() === (s2.pageRange || 'ALL').trim() &&
+      (s1.pageSubset || 'ALL') === (s2.pageSubset || 'ALL') &&
       s1.scaling === s2.scaling &&
       s1.collate === s2.collate
     );
