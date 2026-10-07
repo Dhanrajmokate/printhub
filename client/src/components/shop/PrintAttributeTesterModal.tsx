@@ -6,19 +6,27 @@ import { useToast } from '../../context/ToastContext.js';
 interface PrintAttributeTesterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  systemPrinters: Array<{ name: string; isPhysical: boolean }>;
-  defaultPrinter: string;
+  systemPrinters?: Array<{ name: string; isPhysical: boolean } | any>;
+  defaultPrinter?: any;
 }
 
 export const PrintAttributeTesterModal: React.FC<PrintAttributeTesterModalProps> = ({
   isOpen,
   onClose,
-  systemPrinters,
-  defaultPrinter
+  systemPrinters = [],
+  defaultPrinter = ''
 }) => {
   const { showToast } = useToast();
 
-  const [selectedPrinter, setSelectedPrinter] = useState<string>(defaultPrinter || '');
+  const extractPrinterName = (p: any): string => {
+    if (!p) return '';
+    if (typeof p === 'string') return p;
+    if (typeof p === 'object') return p.name || p.deviceId || '';
+    return String(p);
+  };
+
+  const defaultPrinterName = extractPrinterName(defaultPrinter);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>(defaultPrinterName);
   const [colorMode, setColorMode] = useState<'BW' | 'COLOR'>('COLOR');
   const [duplexMode, setDuplexMode] = useState<'SINGLE' | 'DUPLEX_LONG' | 'DUPLEX_SHORT'>('DUPLEX_LONG');
   const [paperSize, setPaperSize] = useState<string>('A4');
@@ -287,12 +295,16 @@ export const PrintAttributeTesterModal: React.FC<PrintAttributeTesterModalProps>
               onChange={(e) => setSelectedPrinter(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
             >
-              <option value="">Windows Default Printer ({defaultPrinter || 'Default'})</option>
-              {systemPrinters.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name} {p.isPhysical ? '🖨️ (Physical Hardware)' : '📄 (Virtual Spooler)'}
-                </option>
-              ))}
+              <option value="">Windows Default Printer ({defaultPrinterName || 'Default'})</option>
+              {(systemPrinters || []).map((p, idx) => {
+                const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
+                const isPhys = typeof p === 'object' && p !== null ? Boolean(p.isPhysical) : true;
+                return (
+                  <option key={`${pName}-${idx}`} value={pName}>
+                    {pName} {isPhys ? '🖨️ (Physical Hardware)' : '📄 (Virtual Spooler)'}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

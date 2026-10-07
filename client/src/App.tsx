@@ -14,6 +14,7 @@ import { WalletModal } from './components/customer/WalletModal.js';
 import { LandingPage } from './pages/LandingPage.js';
 import { AuthPage } from './pages/AuthPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { Order } from './types/index.js';
 
 // Lazy-load heavy dashboard bundles for lightning-fast initial page load
@@ -56,49 +57,51 @@ const MainAppContent: React.FC = () => {
       />
 
       <main className="flex-1">
-        <React.Suspense
-          fallback={
-            <div className="min-h-[50vh] flex items-center justify-center">
-              <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<AuthPage />} />
+        <ErrorBoundary fallbackTitle="Page Error" fallbackDescription="An unexpected error occurred while loading this page.">
+          <React.Suspense
+            fallback={
+              <div className="min-h-[50vh] flex items-center justify-center">
+                <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<AuthPage />} />
 
-            {/* Customer Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedCustomerRoute>
-                  <CustomerDashboard />
-                </ProtectedCustomerRoute>
-              }
-            />
-            <Route
-              path="/orders"
-              element={
-                <ProtectedCustomerRoute>
-                  <CustomerOrdersPage />
-                </ProtectedCustomerRoute>
-              }
-            />
+              {/* Customer Routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedCustomerRoute>
+                    <CustomerDashboard />
+                  </ProtectedCustomerRoute>
+                }
+              />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedCustomerRoute>
+                    <CustomerOrdersPage />
+                  </ProtectedCustomerRoute>
+                }
+              />
 
-            {/* Shop Route */}
-            <Route
-              path="/shop"
-              element={
-                <ProtectedShopRoute>
-                  <ShopDashboard />
-                </ProtectedShopRoute>
-              }
-            />
+              {/* Shop Route */}
+              <Route
+                path="/shop"
+                element={
+                  <ProtectedShopRoute>
+                    <ShopDashboard />
+                  </ProtectedShopRoute>
+                }
+              />
 
-            {/* 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </React.Suspense>
+              {/* 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </React.Suspense>
+        </ErrorBoundary>
       </main>
 
       <Footer />

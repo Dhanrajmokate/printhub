@@ -6,6 +6,7 @@ import { AnalyticsDashboard } from '../components/shop/AnalyticsDashboard.js';
 import { ShopWalletDashboard } from '../components/shop/ShopWalletDashboard.js';
 import { ShopSettingsModal } from '../components/shop/ShopSettingsModal.js';
 import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
+import { ErrorBoundary } from '../components/common/ErrorBoundary.js';
 import { useAuth } from '../context/AuthContext.js';
 
 export const ShopDashboard: React.FC = () => {
@@ -248,10 +249,12 @@ export const ShopDashboard: React.FC = () => {
       </div>
 
       {/* Tab Panels */}
-      {activeTab === 'QUEUE' && <QueueDashboard />}
-      {activeTab === 'PRINTERS' && <PrinterManager />}
-      {activeTab === 'ANALYTICS' && <AnalyticsDashboard />}
-      {activeTab === 'WALLET' && <ShopWalletDashboard />}
+      <ErrorBoundary fallbackTitle="Section Error" fallbackDescription="An unexpected error occurred in this tab. Click below to try again without losing your session.">
+        {activeTab === 'QUEUE' && <QueueDashboard />}
+        {activeTab === 'PRINTERS' && <PrinterManager />}
+        {activeTab === 'ANALYTICS' && <AnalyticsDashboard />}
+        {activeTab === 'WALLET' && <ShopWalletDashboard />}
+      </ErrorBoundary>
 
       {/* Shop Settings Modal */}
       <ShopSettingsModal

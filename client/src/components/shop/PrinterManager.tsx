@@ -24,6 +24,13 @@ export const PrinterManager: React.FC = () => {
 
   const { showToast } = useToast();
 
+  const extractPrinterName = (p: any): string => {
+    if (!p) return '';
+    if (typeof p === 'string') return p;
+    if (typeof p === 'object') return p.name || p.deviceId || '';
+    return String(p);
+  };
+
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
   const [defaultSystemPrinter, setDefaultSystemPrinter] = useState<string>('');
@@ -35,11 +42,14 @@ export const PrinterManager: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await api.get('/printers');
-      if (res.data.success) {
+      if (res.data?.success && Array.isArray(res.data?.printers)) {
         setPrinters(res.data.printers);
+      } else {
+        setPrinters([]);
       }
     } catch (err) {
       console.error('Failed to fetch printers:', err);
+      setPrinters([]);
     } finally {
       setIsLoading(false);
     }
@@ -50,16 +60,18 @@ export const PrinterManager: React.FC = () => {
 
     if (isElectron && window.electronAPI?.getSystemPrinters) {
       window.electronAPI.getSystemPrinters().then((res) => {
-        if (res?.success && res.printers) {
+        if (res?.success && Array.isArray(res.printers)) {
           setSystemPrinters(res.printers);
-          if (res.defaultPrinter) setDefaultSystemPrinter(res.defaultPrinter);
+          if (res.defaultPrinter) {
+            setDefaultSystemPrinter(extractPrinterName(res.defaultPrinter));
+          }
         }
-      });
+      }).catch((e) => console.warn('Could not query system printers:', e));
       if (window.electronAPI?.getConfig) {
         window.electronAPI.getConfig().then((cfg) => {
-          if (cfg?.bwPrinter) setSelectedBwPrinter(cfg.bwPrinter);
-          if (cfg?.colorPrinter) setSelectedColorPrinter(cfg.colorPrinter);
-        });
+          if (cfg?.bwPrinter) setSelectedBwPrinter(extractPrinterName(cfg.bwPrinter));
+          if (cfg?.colorPrinter) setSelectedColorPrinter(extractPrinterName(cfg.colorPrinter));
+        }).catch((e) => console.warn('Could not query config:', e));
       }
     }
   }, [isElectron]);
@@ -252,12 +264,16 @@ export const PrinterManager: React.FC = () => {
                 onChange={(e) => handleUpdatePrinterConfig('bwPrinter', e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
               >
-                <option value="">Windows Default ({defaultSystemPrinter || 'Default'})</option>
-                {systemPrinters.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name} {p.isPhysical ? '🖨️ (Physical)' : '📄 (Virtual)'}
-                  </option>
-                ))}
+                <option value="">Windows Default ({extractPrinterName(defaultSystemPrinter) || 'Default'})</option>
+                {(systemPrinters || []).map((p, idx) => {
+                  const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
+                  const isPhys = typeof p === 'object' && p !== null ? Boolean(p.isPhysical) : true;
+                  return (
+                    <option key={`bw-${pName}-${idx}`} value={pName}>
+                      {pName} {isPhys ? '🖨️ (Physical)' : '📄 (Virtual)'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -270,12 +286,16 @@ export const PrinterManager: React.FC = () => {
                 onChange={(e) => handleUpdatePrinterConfig('colorPrinter', e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
               >
-                <option value="">Windows Default ({defaultSystemPrinter || 'Default'})</option>
-                {systemPrinters.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name} {p.isPhysical ? '🖨️ (Physical)' : '📄 (Virtual)'}
-                  </option>
-                ))}
+                <option value="">Windows Default ({extractPrinterName(defaultSystemPrinter) || 'Default'})</option>
+                {(systemPrinters || []).map((p, idx) => {
+                  const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
+                  const isPhys = typeof p === 'object' && p !== null ? Boolean(p.isPhysical) : true;
+                  return (
+                    <option key={`color-${pName}-${idx}`} value={pName}>
+                      {pName} {isPhys ? '🖨️ (Physical)' : '📄 (Virtual)'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -329,7 +349,7 @@ export const PrinterManager: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SkeletonShimmer variant="card" count={2} />
         </div>
-      ) : printers.length === 0 ? (
+      ) : !Array.isArray(printers) || printers.length === 0 ? (
         <EmptyState
           icon={Printer}
           title="No Printers Configured"
@@ -339,7 +359,7 @@ export const PrinterManager: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {printers.map((printer) => {
+          {(printers || []).map((printer) => {
             const isOnline = printer.healthStatus?.isOnline ?? printer.isOnline;
             const health = printer.healthStatus?.details;
 
@@ -406,14 +426,18 @@ export const PrinterManager: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">Paper Tray:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {health?.paperStatus || (isOnline ? 'Ready (Tray 1: 500 sheets)' : 'Offline')}
+                      {typeof health?.paperStatus === 'string'
+                        ? health.paperStatus
+                        : (isOnline ? 'Ready (Tray 1: 500 sheets)' : 'Offline')}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">Toner/Ink Level:</span>
                     <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">
-                      {health?.tonerLevel || (printer.type === 'COLOR' ? 'Cyan 92%, Mag 88%, Yel 95%, Blk 90%' : 'Black: 94%')}
+                      {typeof health?.tonerLevel === 'string' || typeof health?.tonerLevel === 'number'
+                        ? String(health.tonerLevel)
+                        : (printer.type === 'COLOR' ? 'Cyan 92%, Mag 88%, Yel 95%, Blk 90%' : 'Black: 94%')}
                     </span>
                   </div>
 
@@ -617,8 +641,8 @@ export const PrinterManager: React.FC = () => {
       <PrintAttributeTesterModal
         isOpen={isAttributeTesterOpen}
         onClose={() => setIsAttributeTesterOpen(false)}
-        systemPrinters={systemPrinters}
-        defaultPrinter={defaultSystemPrinter}
+        systemPrinters={systemPrinters || []}
+        defaultPrinter={extractPrinterName(defaultSystemPrinter)}
       />
     </div>
   );

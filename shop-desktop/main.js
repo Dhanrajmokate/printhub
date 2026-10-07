@@ -184,7 +184,7 @@ ipcMain.handle('get-system-printers', async () => {
     const defaultPrinter = await ptp.getDefaultPrinter().catch(() => null);
 
     const isVirtual = (name) => {
-      const lower = name.toLowerCase();
+      const lower = String(name || '').toLowerCase();
       return (
         lower.includes('onenote') ||
         lower.includes('pdf') ||
@@ -197,16 +197,26 @@ ipcMain.handle('get-system-printers', async () => {
       );
     };
 
+    const defaultPrinterName = typeof defaultPrinter === 'object' && defaultPrinter !== null
+      ? (defaultPrinter.name || defaultPrinter.deviceId || '')
+      : (typeof defaultPrinter === 'string' ? defaultPrinter : '');
+
+    const normalizedPrinters = (printers || []).map((p) => {
+      const pName = typeof p === 'string' ? p : (p?.name || p?.deviceId || 'Unknown Printer');
+      return {
+        ...(typeof p === 'object' && p !== null ? p : {}),
+        name: pName,
+        isPhysical: !isVirtual(pName)
+      };
+    });
+
     return {
       success: true,
-      defaultPrinter,
-      printers: printers.map((p) => ({
-        ...p,
-        isPhysical: !isVirtual(p.name)
-      }))
+      defaultPrinter: defaultPrinterName,
+      printers: normalizedPrinters
     };
   } catch (err) {
-    return { success: false, message: err.message, printers: [] };
+    return { success: false, message: err.message, printers: [], defaultPrinter: '' };
   }
 });
 
