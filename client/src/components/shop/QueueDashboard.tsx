@@ -287,80 +287,101 @@ export const QueueDashboard: React.FC = () => {
                       return (
                         <div
                           key={item.id}
-                          className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-colors ${
                             isPrinted
-                              ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40'
-                              : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-750'
+                              ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50'
+                              : 'bg-slate-100/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/70 shadow-sm'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
-                              <FileText className="w-4 h-4" />
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0 shadow-sm">
+                              <FileText className="w-5 h-5" />
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            <div className="min-w-0 space-y-1.5">
+                              <p className="text-sm font-bold text-slate-900 dark:text-white truncate tracking-tight">
                                 {item.originalFileName}
                               </p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                {/* Color Mode Badge */}
                                 <span
-                                  className={`px-1.5 py-0.2 rounded font-semibold ${
+                                  className={`px-2 py-0.5 rounded-md font-bold flex items-center gap-1 ${
                                     item.colorMode === 'COLOR'
-                                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
-                                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                      ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60'
+                                      : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600/60'
                                   }`}
                                 >
                                   {item.colorMode === 'COLOR' ? '🎨 Color (8002)' : '⬛ B&W (8001)'}
                                 </span>
-                                <span>•</span>
-                                <span className="font-medium text-slate-700 dark:text-slate-300">
+
+                                {/* Duplex Badge */}
+                                <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-semibold border border-slate-300/60 dark:border-slate-600/50">
                                   {item.duplexMode === 'DUPLEX_SHORT'
                                     ? 'Duplex (Short Edge)'
                                     : item.duplexMode === 'DUPLEX_LONG' || item.duplexMode === 'DUPLEX'
                                     ? 'Duplex (Long Edge)'
                                     : '1-Sided'}
                                 </span>
-                                <span>•</span>
-                                <span>{item.paperSize}</span>
-                                <span>•</span>
-                                <span>{item.calculatedPages} pgs × {item.copies} {item.copies === 1 ? 'copy' : 'copies'}</span>
+
+                                {/* Paper Size Badge */}
+                                <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-semibold border border-slate-300/60 dark:border-slate-600/50 font-mono">
+                                  {item.paperSize}
+                                </span>
+
+                                {/* Pages & Copies Badge */}
+                                <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-semibold border border-slate-300/60 dark:border-slate-600/50 font-mono">
+                                  {item.calculatedPages} {item.calculatedPages === 1 ? 'pg' : 'pgs'} × {item.copies} {item.copies === 1 ? 'copy' : 'copies'}
+                                </span>
+
+                                {/* Page Subset Badge */}
                                 {item.pageSubset && item.pageSubset !== 'ALL' && (
-                                  <>
-                                    <span>•</span>
-                                    <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">
-                                      {item.pageSubset === 'ODD' ? 'Odd Pgs' : 'Even Pgs'}
-                                    </span>
-                                  </>
+                                  <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800/60">
+                                    {item.pageSubset === 'ODD' ? 'Odd Pgs' : 'Even Pgs'}
+                                  </span>
                                 )}
-                                {item.pageRange !== 'ALL' && <span>• Range: {item.pageRange}</span>}
+
+                                {/* Page Range Badge */}
+                                {item.pageRange && item.pageRange !== 'ALL' && (
+                                  <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800/60">
+                                    Range: {item.pageRange}
+                                  </span>
+                                )}
+
+                                {/* Scaling Badge */}
                                 {item.scaling && item.scaling !== 'FIT' && (
-                                  <span>• {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}</span>
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-medium border border-slate-300/60 dark:border-slate-600/50">
+                                    {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}
+                                  </span>
                                 )}
+
+                                {/* Orientation Badge */}
                                 {item.orientation && item.orientation !== 'AUTO' && (
-                                  <span>• {item.orientation === 'LANDSCAPE' ? 'Landscape' : 'Portrait'}</span>
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-medium border border-slate-300/60 dark:border-slate-600/50">
+                                    {item.orientation === 'LANDSCAPE' ? 'Landscape' : 'Portrait'}
+                                  </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Manual Print Button (NO AUTO-PRINT) */}
-                          <div className="flex items-center gap-2 self-end sm:self-center">
+                          {/* Print Action Button */}
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                             {isPrinted ? (
-                              <span className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                                <Check className="w-3.5 h-3.5" /> Printed
+                              <span className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/90 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800/60">
+                                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Printed
                               </span>
                             ) : (
                               <button
                                 type="button"
                                 disabled={isPrinting}
                                 onClick={() => handleManualPrint(order.id, item.id, item.originalFileName)}
-                                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all flex items-center gap-1.5 disabled:opacity-50"
                               >
                                 {isPrinting ? (
-                                  <div className="w-3.5 h-3.5 border-2 border-white dark:border-slate-900 border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                  <Play className="w-3 h-3 fill-current" />
+                                  <Play className="w-3.5 h-3.5 fill-current" />
                                 )}
-                                <span>Print on {item.colorMode === 'COLOR' ? 'Color (8002)' : 'B&W (8001)'}</span>
+                                <span>Print on {item.colorMode === 'COLOR' ? 'Color' : 'B&W'}</span>
                               </button>
                             )}
                           </div>
