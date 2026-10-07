@@ -134,22 +134,22 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({ selectedShop, onSele
                 </div>
 
                 {/* Live Rates Matrix Table */}
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-850 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-750">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-100/80 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wider">
                       B&W Single / Duplex
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
-                      ₹{bwSingle.toFixed(2)} / ₹{bwDuplex.toFixed(2)}
+                    <span className="font-extrabold text-slate-900 dark:text-white font-mono text-sm">
+                      ₹{bwSingle.toFixed(2)} <span className="text-slate-400 dark:text-slate-500 font-normal">/</span> ₹{bwDuplex.toFixed(2)}
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wider">
                       Color Single / Duplex
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
-                      ₹{colorSingle.toFixed(2)} / ₹{colorDuplex.toFixed(2)}
+                    <span className="font-extrabold text-slate-900 dark:text-white font-mono text-sm">
+                      ₹{colorSingle.toFixed(2)} <span className="text-slate-400 dark:text-slate-500 font-normal">/</span> ₹{colorDuplex.toFixed(2)}
                     </span>
                   </div>
                 </div>

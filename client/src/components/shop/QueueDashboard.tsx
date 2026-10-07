@@ -527,7 +527,7 @@ export const QueueDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-500 dark:text-slate-400">
                 Verify UTR & amount on receipt before printing
               </span>

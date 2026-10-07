@@ -263,7 +263,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
           {order.items.map((item, idx) => (
             <div
               key={item.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 hover:bg-slate-50/50 dark:hover:bg-slate-850 transition-colors"
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 hover:bg-slate-50/50 dark:hover:bg-slate-800/60 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center flex-shrink-0">
@@ -394,7 +394,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
               />
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-500 dark:text-slate-400">
                 Uploaded during checkout
               </span>
