@@ -267,30 +267,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl relative my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full shadow-2xl relative flex flex-col max-h-[92vh] overflow-hidden">
+        {/* Fixed Header */}
+        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 p-5 sm:p-6 shrink-0 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-inner">
+            <div className="w-11 h-11 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-inner shrink-0">
               <QrCode className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Pay at {selectedShop?.name || 'Shop'}</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Pay at {selectedShop?.name || 'Shop'}</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Official PhonePe QR of {selectedShop?.name}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Order & Shop Summary */}
+        {/* Scrollable Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+          {/* Order & Shop Summary */}
         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 mb-4 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -727,42 +730,47 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         )}
 
-        {/* Submit Action Button */}
-        <button
-          type="button"
-          onClick={handleCheckout}
-          disabled={isProcessing || (paymentMethod === 'WALLET' && !isWalletSufficient)}
-          className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
-            paymentMethod === 'RAZORPAY'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-500/25 hover:shadow-indigo-500/35'
-              : paymentMethod === 'SHOP_UPI_QR'
-              ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25 hover:shadow-purple-500/35'
-              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25 hover:shadow-emerald-500/35'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {isProcessing ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <ShieldCheck className="w-4 h-4" />
-              <span>
-                {paymentMethod === 'RAZORPAY'
-                  ? `🚀 Pay ₹${subtotal.toFixed(2)} with Razorpay (Instant UPI)`
-                  : paymentMethod === 'SHOP_UPI_QR'
-                  ? `📸 Submit Order with Payment Proof (₹${subtotal.toFixed(2)})`
-                  : `👛 Pay ₹${subtotal.toFixed(2)} from PrintHub Wallet`}
-              </span>
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+        </div>
 
-        <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2.5 flex items-center justify-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          {paymentMethod === 'RAZORPAY'
-            ? '100% Encrypted & Verified by Razorpay Payment Gateway'
-            : `Direct Settlement to ${selectedShop?.name}'s Account (${selectedShop?.upiId})`}
-        </p>
+        {/* Pinned Footer Actions */}
+        <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0 space-y-2">
+          {/* Submit Action Button */}
+          <button
+            type="button"
+            onClick={handleCheckout}
+            disabled={isProcessing || (paymentMethod === 'WALLET' && !isWalletSufficient)}
+            className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
+              paymentMethod === 'RAZORPAY'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-500/25 hover:shadow-indigo-500/35'
+                : paymentMethod === 'SHOP_UPI_QR'
+                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25 hover:shadow-purple-500/35'
+                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25 hover:shadow-emerald-500/35'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {isProcessing ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4" />
+                <span>
+                  {paymentMethod === 'RAZORPAY'
+                    ? `🚀 Pay ₹${subtotal.toFixed(2)} with Razorpay (Instant UPI)`
+                    : paymentMethod === 'SHOP_UPI_QR'
+                    ? `📸 Submit Order with Payment Proof (₹${subtotal.toFixed(2)})`
+                    : `👛 Pay ₹${subtotal.toFixed(2)} from PrintHub Wallet`}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+
+          <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            {paymentMethod === 'RAZORPAY'
+              ? '100% Encrypted & Verified by Razorpay Payment Gateway'
+              : `Direct Settlement to ${selectedShop?.name}'s Account (${selectedShop?.upiId})`}
+          </p>
+        </div>
       </div>
     </div>
   );

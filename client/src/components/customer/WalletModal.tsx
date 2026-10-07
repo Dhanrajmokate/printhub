@@ -69,29 +69,32 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full shadow-2xl relative flex flex-col max-h-[92vh] overflow-hidden">
+        {/* Fixed Header */}
+        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 p-5 sm:p-6 shrink-0 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner shrink-0">
               <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">PrintHub Digital Wallet</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">PrintHub Digital Wallet</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">Instant 1-Click Checkout & Auto-Refunds</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Balance Card */}
-        <div className="p-6 rounded-3xl bg-gradient-to-tr from-indigo-900 via-indigo-800 to-indigo-700 text-white shadow-xl relative overflow-hidden mb-6">
+        {/* Scrollable Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-6">
+          {/* Balance Card */}
+          <div className="p-6 rounded-3xl bg-gradient-to-tr from-indigo-900 via-indigo-800 to-indigo-700 text-white shadow-xl relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           
           <div className="flex items-center justify-between text-xs text-indigo-200 uppercase tracking-wider font-semibold mb-1">
@@ -231,5 +234,6 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => 
         </div>
       </div>
     </div>
+  </div>
   );
 };

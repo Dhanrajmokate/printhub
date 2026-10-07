@@ -214,7 +214,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
       {/* Mobile Drawer (Sliding from Left as specified: 'hamburger menu left') */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl p-6 flex flex-col justify-between animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl p-6 flex flex-col justify-between animate-in slide-in-from-left duration-200 overflow-y-auto">
             <div className="space-y-6">
               {/* Drawer Top */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">

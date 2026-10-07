@@ -417,12 +417,12 @@ export const ShopWalletDashboard: React.FC = () => {
       {/* MODAL: WITHDRAW REVENUE TO REAL UPI MONEY               */}
       {/* ========================================================= */}
       {isWithdrawModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative my-8">
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full shadow-2xl relative flex flex-col max-h-[92vh] overflow-hidden">
+            {/* Fixed Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 p-5 sm:p-6 shrink-0 bg-white dark:bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-inner">
+                <div className="w-11 h-11 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-inner shrink-0">
                   <Smartphone className="w-6 h-6" />
                 </div>
                 <div>
@@ -435,13 +435,15 @@ export const ShopWalletDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsWithdrawModalOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors"
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* If Payout is Completed -> Show Official Settlement Receipt */}
+            {/* Scrollable Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+              {/* If Payout is Completed -> Show Official Settlement Receipt */}
             {payoutSuccessReceipt ? (
               <div className="space-y-4 text-center animate-in zoom-in-95">
                 <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center shadow-md">
@@ -609,7 +611,8 @@ export const ShopWalletDashboard: React.FC = () => {
             )}
           </div>
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 };
