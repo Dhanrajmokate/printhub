@@ -60,22 +60,31 @@ function startInternalServer(distDir) {
 
     const internalApp = express();
     internalApp.use(cors());
+    internalApp.use(express.json({ limit: '50mb' }));
+    internalApp.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
     // Proxy /api requests to configured backendUrl
     internalApp.use('/api', async (req, res) => {
       const cfg = loadConfig();
-      const backendBase = (cfg.backendUrl || 'http://localhost:8000').replace(/\/$/, '');
-      const target = `${backendBase}/api${req.url}`;
+      const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
+      const target = `${backendBase}${req.originalUrl}`;
       try {
+        const isSSE = req.headers.accept?.includes('text/event-stream');
         const response = await axios({
           method: req.method,
           url: target,
           headers: { ...req.headers, host: undefined },
           data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
+          responseType: isSSE ? 'stream' : undefined,
           validateStatus: () => true,
-          timeout: 30000
+          timeout: isSSE ? 0 : 30000
         });
-        res.status(response.status).set(response.headers).send(response.data);
+        res.status(response.status).set(response.headers);
+        if (response.data && typeof response.data.pipe === 'function') {
+          response.data.pipe(res);
+        } else {
+          res.send(response.data);
+        }
       } catch (err) {
         res.status(502).json({
           error: 'Backend Server Unreachable',
@@ -88,8 +97,8 @@ function startInternalServer(distDir) {
     // Proxy /uploads requests to configured backendUrl
     internalApp.use('/uploads', async (req, res) => {
       const cfg = loadConfig();
-      const backendBase = (cfg.backendUrl || 'http://localhost:8000').replace(/\/$/, '');
-      const target = `${backendBase}/uploads${req.url}`;
+      const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
+      const target = `${backendBase}${req.originalUrl}`;
       try {
         const response = await axios({
           method: req.method,
@@ -107,8 +116,8 @@ function startInternalServer(distDir) {
     // Serve bundled client React app
     internalApp.use(express.static(distDir));
 
-    // Single Page App fallback for React Router
-    internalApp.get('*', (req, res) => {
+    // Single Page App fallback for React Router (compatible with Express 5)
+    internalApp.use((req, res) => {
       res.sendFile(path.join(distDir, 'index.html'));
     });
 
