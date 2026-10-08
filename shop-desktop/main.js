@@ -137,6 +137,7 @@ function createWindow() {
     minHeight: 700,
     title: 'PrintHub Shop Partner — Desktop Print Manager',
     backgroundColor: '#0f172a',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -144,7 +145,16 @@ function createWindow() {
     }
   });
 
-  const targetUrl = process.env.VITE_DEV_URL || 'http://localhost:8080/shop';
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  // Pre-warm the backend immediately in the background so it's awake
+  try {
+    const cfg = loadConfig();
+    const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
+    axios.get(`${backendBase}/api/health`, { timeout: 15000 }).catch(() => {});
+  } catch (e) {}
 
   // Resolve client-dist folder across dev, unpacked resources, and packaged modes
   const unpackedClientDist = process.resourcesPath
@@ -159,14 +169,26 @@ function createWindow() {
     ? localClientDist
     : siblingClientDist;
 
-  axios.get('http://localhost:8080', { timeout: 1500 })
-    .then(() => {
-      console.log('[Desktop] Connected to live web client at http://localhost:8080');
-      mainWindow.loadURL(targetUrl);
-    })
-    .catch(async () => {
-      console.log('[Desktop] Live web dev server not detected. Starting embedded static server...');
-      if (fs.existsSync(path.join(clientDistFolder, 'index.html'))) {
+  // In packaged mode, start embedded server instantly without waiting for localhost:8080!
+  if (app.isPackaged) {
+    startInternalServer(clientDistFolder)
+      .then((embeddedUrl) => {
+        mainWindow.loadURL(embeddedUrl);
+      })
+      .catch((serverErr) => {
+        console.error('[Desktop] Failed to start embedded server:', serverErr);
+        mainWindow.loadFile(path.join(clientDistFolder, 'index.html'));
+      });
+  } else {
+    // In dev mode, check if Vite dev server is running on 8080
+    const targetUrl = process.env.VITE_DEV_URL || 'http://localhost:8080/shop';
+    axios.get('http://localhost:8080', { timeout: 800 })
+      .then(() => {
+        console.log('[Desktop] Connected to live web client at http://localhost:8080');
+        mainWindow.loadURL(targetUrl);
+      })
+      .catch(async () => {
+        console.log('[Desktop] Live web dev server not detected. Starting embedded static server...');
         try {
           const embeddedUrl = await startInternalServer(clientDistFolder);
           mainWindow.loadURL(embeddedUrl);
@@ -174,10 +196,8 @@ function createWindow() {
           console.error('[Desktop] Failed to start embedded server:', serverErr);
           mainWindow.loadFile(path.join(clientDistFolder, 'index.html'));
         }
-      } else {
-        mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
-      }
-    });
+      });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
