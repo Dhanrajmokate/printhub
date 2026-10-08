@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Printer, UploadCloud, CreditCard, PackageCheck, Sparkles, ArrowRight, ShieldCheck, CheckCircle2, Zap, Store, Sliders, FileText, Download, Monitor, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
+import { DESKTOP_DOWNLOAD_CONFIG } from '../config/downloadConfig.js';
 
 export const LandingPage: React.FC = () => {
   const { isAuthenticated, user, login } = useAuth();
@@ -88,10 +89,12 @@ export const LandingPage: React.FC = () => {
               </button>
 
               <a
-                href="/downloads/PrintHub-Shop-Setup.exe"
-                download="PrintHub-Shop-Setup.exe"
+                href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+                download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+                target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+                rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
                 className="px-5 py-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-                title="Download Standalone Windows Desktop App (.exe)"
+                title={`Download Standalone Windows Desktop App (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
               >
                 <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Download Desktop App (.exe)</span>
@@ -328,15 +331,17 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0 w-full sm:w-auto">
             <a
-              href="/downloads/PrintHub-Shop-Setup.exe"
-              download="PrintHub-Shop-Setup.exe"
+              href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+              download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+              target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+              rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
               className="px-6 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2.5 text-center group"
             >
               <Download className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
               <span>Download for Windows (.exe)</span>
             </a>
             <span className="text-[11px] text-slate-400 text-center font-mono">
-              v1.0.0 &bull; Windows 10/11 &bull; 64-bit
+              v{DESKTOP_DOWNLOAD_CONFIG.version} &bull; {DESKTOP_DOWNLOAD_CONFIG.os} &bull; {DESKTOP_DOWNLOAD_CONFIG.fileSize}
             </span>
           </div>
         </div>

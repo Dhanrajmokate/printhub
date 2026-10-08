@@ -4,6 +4,7 @@ import { Printer, ShoppingBag, Sun, Moon, Wallet, Menu, X, LogOut, User, LayoutD
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useCart } from '../../context/CartContext.js';
+import { DESKTOP_DOWNLOAD_CONFIG } from '../../config/downloadConfig.js';
 
 interface NavbarProps {
   onOpenCart?: () => void;
@@ -113,10 +114,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
 
             {/* Desktop App Download Button */}
             <a
-              href="/downloads/PrintHub-Shop-Setup.exe"
-              download="PrintHub-Shop-Setup.exe"
+              href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+              download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+              target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+              rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
               className="ml-2 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 shadow-sm"
-              title="Download Desktop App for Windows (.exe)"
+              title={`Download Desktop App for Windows (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
             >
               <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Desktop App (.exe)</span>
@@ -293,8 +296,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                 )}
                 {/* Desktop App Download Link */}
                 <a
-                  href="/downloads/PrintHub-Shop-Setup.exe"
-                  download="PrintHub-Shop-Setup.exe"
+                  href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+                  download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+                  target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+                  rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 transition-colors"
                 >

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Printer, Heart, Shield, Zap, Sparkles, Download } from 'lucide-react';
+import { DESKTOP_DOWNLOAD_CONFIG } from '../../config/downloadConfig.js';
 
 export const Footer: React.FC = () => {
   return (
@@ -25,10 +26,12 @@ export const Footer: React.FC = () => {
             <Shield className="w-3.5 h-3.5 text-emerald-500" /> ₹100 Welcome Bonus
           </span>
           <a
-            href="/downloads/PrintHub-Shop-Setup.exe"
-            download="PrintHub-Shop-Setup.exe"
+            href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+            download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+            target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+            rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
             className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
-            title="Download Standalone Desktop App for Print Shopkeepers (.exe)"
+            title={`Download Standalone Desktop App for Print Shopkeepers (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download Desktop App (.exe)</span>

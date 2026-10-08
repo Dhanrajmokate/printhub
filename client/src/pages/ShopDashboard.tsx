@@ -8,6 +8,7 @@ import { ShopSettingsModal } from '../components/shop/ShopSettingsModal.js';
 import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
 import { ErrorBoundary } from '../components/common/ErrorBoundary.js';
 import { useAuth } from '../context/AuthContext.js';
+import { DESKTOP_DOWNLOAD_CONFIG } from '../config/downloadConfig.js';
 
 export const ShopDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -129,10 +130,12 @@ export const ShopDashboard: React.FC = () => {
           ) : (
             <>
               <a
-                href="/downloads/PrintHub-Shop-Setup.exe"
-                download="PrintHub-Shop-Setup.exe"
+                href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+                download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+                target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+                rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
                 className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/25"
-                title="Download the standalone Windows Desktop App (.exe)"
+                title={`Download the standalone Windows Desktop App (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
               >
                 <Download className="w-4 h-4" />
                 <span>Download Desktop App (.exe)</span>
@@ -183,8 +186,10 @@ export const ShopDashboard: React.FC = () => {
             </span>
           </div>
           <a
-            href="/downloads/PrintHub-Shop-Setup.exe"
-            download="PrintHub-Shop-Setup.exe"
+            href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+            download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+            target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+            rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
             className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/30"
           >
             <Download className="w-3.5 h-3.5" />
