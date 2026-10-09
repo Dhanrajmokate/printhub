@@ -28,7 +28,68 @@ router.post('/register', async (req, res: Response) => {
     });
 
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
+      if (existingUser.isVerified) {
+        return res.status(400).json({ success: false, message: 'An account with this email already exists. Please sign in.' });
+      }
+
+      // User registered previously but did not verify OTP yet. Update credentials and resend fresh code:
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const userRole = role === 'SHOP' ? 'SHOP' : 'CUSTOMER';
+
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          name: name.trim(),
+          password: hashedPassword,
+          phone: phone ? phone.trim() : null,
+          role: userRole
+        }
+      });
+
+      if (userRole === 'SHOP') {
+        const existingShop = await prisma.shop.findUnique({ where: { userId: existingUser.id } });
+        if (existingShop) {
+          await prisma.shop.update({
+            where: { id: existingShop.id },
+            data: {
+              name: shopName ? shopName.trim() : `${name.trim()}'s Print Shop`,
+              address: shopAddress ? shopAddress.trim() : '123 Main Market Road',
+              phone: phone ? phone.trim() : '9876543210'
+            }
+          });
+        } else {
+          const shop = await prisma.shop.create({
+            data: {
+              userId: existingUser.id,
+              name: shopName ? shopName.trim() : `${name.trim()}'s Print Shop`,
+              address: shopAddress ? shopAddress.trim() : '123 Main Market Road',
+              phone: phone ? phone.trim() : '9876543210',
+              bwSingleRate: 2.0,
+              bwDuplexRate: 3.0,
+              colorSingleRate: 10.0,
+              colorDuplexRate: 18.0,
+              autoConvert: true
+            }
+          });
+          await prisma.printer.createMany({
+            data: [
+              { shopId: shop.id, name: 'High-Speed B&W Laser', port: 8001, type: 'BW', supportsDuplex: true, isOnline: true, autoConvert: true },
+              { shopId: shop.id, name: 'Pro Glossy Color Inkjet', port: 8002, type: 'COLOR', supportsDuplex: true, isOnline: true, autoConvert: true }
+            ]
+          });
+        }
+      }
+
+      const { otp, emailSent } = await generateAndSendOtp(existingUser.email, 'REGISTRATION');
+
+      return res.status(200).json({
+        success: true,
+        message: emailSent
+          ? 'Verification code sent to your email.'
+          : 'Registration updated! Check the on-screen verification code.',
+        email: existingUser.email,
+        debugOtp: otp
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -117,7 +178,7 @@ router.post('/register', async (req, res: Response) => {
         ? 'Registration initiated! Please enter the OTP sent to your email.'
         : 'Registration initiated! Check the on-screen OTP code to verify.',
       email: user.email,
-      debugOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+      debugOtp: otp
     });
   } catch (error: any) {
     console.error('Registration error:', error);
@@ -202,8 +263,8 @@ router.post('/send-otp', async (req, res: Response) => {
 
     return res.json({
       success: true,
-      message: emailSent ? 'New OTP sent to email' : 'New OTP generated (see below)',
-      debugOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+      message: emailSent ? 'New OTP sent to email' : 'New verification code generated',
+      debugOtp: otp
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: 'Failed to send OTP' });
@@ -243,13 +304,15 @@ router.post('/login', async (req, res: Response) => {
 
     if (!user.isVerified) {
       // Auto trigger OTP for unverified accounts
-      const { otp } = await generateAndSendOtp(user.email, 'REGISTRATION');
+      const { otp, emailSent } = await generateAndSendOtp(user.email, 'REGISTRATION');
       return res.status(403).json({
         success: false,
         requiresOtp: true,
-        message: 'Account not verified. Please enter the OTP to activate your account.',
+        message: emailSent
+          ? 'Account not verified. Please enter the OTP sent to your email.'
+          : 'Account not verified. Check the on-screen code to activate your account.',
         email: user.email,
-        debugOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+        debugOtp: otp
       });
     }
 

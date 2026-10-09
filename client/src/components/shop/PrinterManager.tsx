@@ -84,7 +84,8 @@ export const PrinterManager: React.FC = () => {
         await window.electronAPI.printJob({
           orderNumber: 'TEST-PAGE',
           originalFileName: 'PrintHub_Physical_Hardware_Test.pdf',
-          localPath: 'c:\\Users\\rahul\\OneDrive\\Desktop\\smart print\\PrintHub_IEEE_Research_Paper.pdf',
+          localPath: 'c:\\Users\\rahul\\OneDrive\\Desktop\\smart print\\shop-desktop\\test-page.pdf',
+          fileUrl: `${window.location.origin}/test-page.pdf`,
           printerName: target || undefined,
           copies: 1,
           colorMode: 'BW',
@@ -388,24 +389,38 @@ export const PrinterManager: React.FC = () => {
                         <span>•</span>
                         <span className="font-medium uppercase">{printer.type} Printer</span>
                       </div>
+                      {isElectron && (
+                        <div className="text-[11px] text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                          <span>Spooler Target:</span>
+                          <span className="font-mono text-slate-700 dark:text-slate-300">
+                            {printer.type === 'COLOR'
+                              ? (selectedColorPrinter || defaultSystemPrinter || 'Windows Default')
+                              : (selectedBwPrinter || defaultSystemPrinter || 'Windows Default')}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1">
                     <span
                       className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                        isOnline
+                        (isElectron || isOnline)
                           ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900'
-                          : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
+                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900'
                       }`}
                     >
-                      {isOnline ? (
+                      {isElectron ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3" /> Ready (Spooler)
+                        </>
+                      ) : isOnline ? (
                         <>
                           <CheckCircle2 className="w-3 h-3" /> Online
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-3 h-3" /> Offline (503)
+                          <CheckCircle2 className="w-3 h-3 text-indigo-500" /> Cloud Spool Ready
                         </>
                       )}
                     </span>

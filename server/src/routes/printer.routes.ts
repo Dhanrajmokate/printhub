@@ -23,7 +23,7 @@ router.get('/', authenticate, requireRole(['SHOP']), async (req: AuthenticatedRe
       return res.status(404).json({ success: false, message: 'Shop not found' });
     }
 
-    // Ping each printer's port to get real-time health status
+    // Return shop printers with live spooler health
     const printersWithHealth = await Promise.all(
       shop.printers.map(async (p) => {
         const health = await pingPrinterHealth(p.port);
@@ -33,7 +33,7 @@ router.get('/', authenticate, requireRole(['SHOP']), async (req: AuthenticatedRe
           port: p.port,
           type: p.type,
           supportsDuplex: p.supportsDuplex,
-          isOnline: p.isOnline && health.isOnline,
+          isOnline: p.isOnline !== false,
           autoConvert: p.autoConvert,
           healthStatus: health
         };

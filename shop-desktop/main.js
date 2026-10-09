@@ -69,11 +69,14 @@ function startInternalServer(distDir) {
       const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
       const target = `${backendBase}${req.originalUrl}`;
       try {
-        const isSSE = req.headers.accept?.includes('text/event-stream');
+        const headers = { ...req.headers };
+        delete headers.host;
+        delete headers['content-length'];
+
         const response = await axios({
           method: req.method,
           url: target,
-          headers: { ...req.headers, host: undefined },
+          headers,
           data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
           responseType: isSSE ? 'stream' : undefined,
           validateStatus: () => true,
@@ -212,29 +215,26 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+// Helper: Detect virtual / document-export printers
+function isVirtual(name) {
+  const lower = String(name || '').toLowerCase();
+  return (
+    lower.includes('onenote') ||
+    lower.includes('pdf') ||
+    lower.includes('xps') ||
+    lower.includes('fax') ||
+    lower.includes('solid edge') ||
+    lower.includes('writer') ||
+    lower.includes('distiller') ||
+    lower.includes('virtual')
+  );
+}
 
 // IPC: Get System Printers
 ipcMain.handle('get-system-printers', async () => {
   try {
     const printers = await ptp.getPrinters();
     const defaultPrinter = await ptp.getDefaultPrinter().catch(() => null);
-
-    const isVirtual = (name) => {
-      const lower = String(name || '').toLowerCase();
-      return (
-        lower.includes('onenote') ||
-        lower.includes('pdf') ||
-        lower.includes('xps') ||
-        lower.includes('fax') ||
-        lower.includes('solid edge') ||
-        lower.includes('writer') ||
-        lower.includes('distiller') ||
-        lower.includes('virtual')
-      );
-    };
 
     const defaultPrinterName = typeof defaultPrinter === 'object' && defaultPrinter !== null
       ? (defaultPrinter.name || defaultPrinter.deviceId || '')
@@ -269,6 +269,14 @@ ipcMain.handle('print-job', async (event, jobData) => {
 
   try {
     let localFilePath = jobData.localPath;
+
+    // Check if provided localPath exists, or check fallback locations
+    if (localFilePath && !fs.existsSync(localFilePath)) {
+      const altLocal = path.resolve(__dirname, '..', path.basename(localFilePath));
+      if (fs.existsSync(altLocal)) {
+        localFilePath = altLocal;
+      }
+    }
 
     // 1. Download or decode document if URL provided
     if (jobData.fileUrl && (!localFilePath || !fs.existsSync(localFilePath))) {
@@ -316,6 +324,9 @@ ipcMain.handle('print-job', async (event, jobData) => {
       });
       if (physical) {
         targetPrinter = typeof physical === 'string' ? physical : (physical.name || physical.deviceId);
+        console.log(`[Hardware Spooler] Auto-routed to physical printer: ${targetPrinter}`);
+      } else {
+        targetPrinter = systemDefaultName || (allPrinters[0] ? (typeof allPrinters[0] === 'string' ? allPrinters[0] : allPrinters[0].name) : '');
       }
     }
 

@@ -447,8 +447,23 @@ router.post('/:orderId/items/:itemId/print', requireRole(['SHOP']), async (req: 
 
     return res.json({
       success: true,
+      orderNumber: order.orderNumber,
       message: `Print job sent to ${routingResult.printerName} (Port ${routingResult.port})`,
-      result: routingResult
+      result: {
+        ...routingResult,
+        storedFileName: item.storedFileName,
+        originalFileName: item.originalFileName,
+        fileUrl: `${process.env.CLIENT_URL || ''}/uploads/raw/${item.storedFileName}`,
+        copies: item.copies,
+        colorMode: item.colorMode,
+        duplexMode: item.duplexMode,
+        orientation: item.orientation,
+        paperSize: item.paperSize,
+        quality: item.quality,
+        pageRange: item.pageRange,
+        scaling: item.scaling,
+        collate: item.collate
+      }
     });
   } catch (error: any) {
     console.error('Print job error:', error);

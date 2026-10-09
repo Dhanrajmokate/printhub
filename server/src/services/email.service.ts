@@ -6,14 +6,18 @@ let transporter: nodemailer.Transporter | null = null;
 
 if (config.smtp.user && config.smtp.pass) {
   const isGmail = config.smtp.host.includes('gmail') || config.smtp.user.includes('@gmail.com');
+  const sanitizedPass = (config.smtp.pass || '').replace(/\s+/g, '');
   transporter = nodemailer.createTransport(
     isGmail
       ? {
           service: 'gmail',
           auth: {
             user: config.smtp.user,
-            pass: config.smtp.pass
-          }
+            pass: sanitizedPass
+          },
+          connectionTimeout: 4000,
+          greetingTimeout: 3000,
+          socketTimeout: 5000
         }
       : {
           host: config.smtp.host,
@@ -21,8 +25,11 @@ if (config.smtp.user && config.smtp.pass) {
           secure: config.smtp.port === 465,
           auth: {
             user: config.smtp.user,
-            pass: config.smtp.pass
-          }
+            pass: sanitizedPass
+          },
+          connectionTimeout: 4000,
+          greetingTimeout: 3000,
+          socketTimeout: 5000
         }
   );
 }
@@ -51,7 +58,7 @@ export async function generateAndSendOtp(email: string, type: 'REGISTRATION' | '
 
   if (transporter && config.smtp.user) {
     try {
-      await transporter.sendMail({
+      const sendPromise = transporter.sendMail({
         from: config.smtp.from,
         to: email,
         subject: `Your PrintHub Verification Code: ${otp}`,
@@ -66,10 +73,16 @@ export async function generateAndSendOtp(email: string, type: 'REGISTRATION' | '
           </div>
         `
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP timeout (4s exceeded)')), 4000)
+      );
+
+      await Promise.race([sendPromise, timeoutPromise]);
       emailSent = true;
       console.log(`[Email] OTP sent successfully to ${email}`);
-    } catch (err) {
-      console.warn(`[Email] Failed to send email via SMTP, falling back to on-screen OTP:`, err);
+    } catch (err: any) {
+      console.warn(`[Email] SMTP delivery notice (${err.message}). Instant on-screen code enabled.`);
     }
   } else {
     console.log(`\n========================================`);

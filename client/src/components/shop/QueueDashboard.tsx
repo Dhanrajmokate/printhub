@@ -91,26 +91,32 @@ export const QueueDashboard: React.FC = () => {
   const handleManualPrint = async (orderId: string, itemId: string, itemTitle: string) => {
     setPrintingItemId(itemId);
     try {
+      const order = queueOrders.find((o) => o.id === orderId);
+      const item = order?.items.find((i) => i.id === itemId);
+
       const res = await api.post(`/orders/${orderId}/items/${itemId}/print`);
 
       // If running inside native Electron Desktop App, dispatch directly to physical hardware!
       if (typeof window !== 'undefined' && window.electronAPI?.printJob) {
-        const itemResult = res.data?.result;
-        if (itemResult) {
-          const baseServer = getApiBaseUrl().replace(/\/api$/, '');
-          await window.electronAPI.printJob({
-            orderNumber: res.data?.orderNumber || 'ORD',
-            originalFileName: itemTitle,
-            fileUrl: itemResult.fileUrl || `${baseServer}/uploads/raw/${itemResult.storedFileName}`,
-            copies: itemResult.copies || 1,
-            colorMode: itemResult.colorMode || 'BW',
-            duplexMode: itemResult.duplexMode || 'SINGLE',
-            paperSize: itemResult.paperSize || 'A4',
-            pageRange: itemResult.pageRange || 'ALL',
-            scaling: itemResult.scaling || 'fit',
-            orientation: itemResult.orientation || 'portrait'
-          }).catch((e) => console.warn('[Desktop Spooler] Physical dispatch:', e));
-        }
+        const itemResult = res.data?.result || {};
+        const baseServer = getApiBaseUrl().replace(/\/api$/, '');
+        const targetStoredFile = itemResult.storedFileName || item?.storedFileName;
+        const targetFileUrl = targetStoredFile
+          ? `${baseServer}/uploads/raw/${targetStoredFile}`
+          : itemResult.fileUrl || '';
+
+        await window.electronAPI.printJob({
+          orderNumber: res.data?.orderNumber || order?.orderNumber || 'ORD',
+          originalFileName: itemTitle || item?.originalFileName || 'document.pdf',
+          fileUrl: targetFileUrl,
+          copies: itemResult.copies || item?.copies || 1,
+          colorMode: itemResult.colorMode || item?.colorMode || 'BW',
+          duplexMode: itemResult.duplexMode || item?.duplexMode || 'SINGLE',
+          paperSize: itemResult.paperSize || item?.paperSize || 'A4',
+          pageRange: itemResult.pageRange || item?.pageRange || 'ALL',
+          scaling: itemResult.scaling || item?.scaling || 'fit',
+          orientation: itemResult.orientation || item?.orientation || 'portrait'
+        }).catch((e) => console.warn('[Desktop Spooler] Physical dispatch:', e));
       }
 
       if (res.data.success) {
