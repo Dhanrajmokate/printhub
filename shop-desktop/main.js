@@ -298,7 +298,26 @@ ipcMain.handle('print-job', async (event, jobData) => {
     // 2. Resolve printer settings & attributes
     const config = loadConfig();
     const systemDefault = await ptp.getDefaultPrinter().catch(() => null);
-    const targetPrinter = jobData.printerName || (jobData.colorMode === 'COLOR' ? config.colorPrinter : config.bwPrinter) || systemDefault;
+    const systemDefaultName = typeof systemDefault === 'object' && systemDefault !== null
+      ? (systemDefault.name || systemDefault.deviceId || '')
+      : (typeof systemDefault === 'string' ? systemDefault : '');
+
+    let targetPrinter = jobData.printerName || (jobData.colorMode === 'COLOR' ? config.colorPrinter : config.bwPrinter) || systemDefaultName;
+    if (typeof targetPrinter === 'object' && targetPrinter !== null) {
+      targetPrinter = targetPrinter.name || targetPrinter.deviceId || '';
+    }
+
+    // Auto-detect first physical printer if targetPrinter is still empty or virtual
+    if (!targetPrinter || isVirtual(targetPrinter)) {
+      const allPrinters = await ptp.getPrinters().catch(() => []);
+      const physical = allPrinters.find((p) => {
+        const pName = typeof p === 'string' ? p : (p?.name || p?.deviceId || '');
+        return !isVirtual(pName);
+      });
+      if (physical) {
+        targetPrinter = typeof physical === 'string' ? physical : (physical.name || physical.deviceId);
+      }
+    }
 
     const finalSide = jobData.duplexMode === 'DUPLEX_SHORT'
       ? 'duplexshort'
@@ -322,8 +341,9 @@ ipcMain.handle('print-job', async (event, jobData) => {
     let physicalDispatched = false;
     let dispatchedPrinterName = targetPrinter || 'Default';
 
-    // 3. Spool to Windows Hardware Printer
+    // 3. Spool to Windows Hardware Printer with robust multi-tier fallback
     if (targetPrinter) {
+      dispatchedPrinterName = targetPrinter;
       console.log(`[Hardware Spooler] Dispatching to physical printer: ${targetPrinter}...`);
 
       const ptpOptions = {
@@ -340,9 +360,40 @@ ipcMain.handle('print-job', async (event, jobData) => {
         printDialog: false
       };
 
-      await ptp.print(localFilePath, ptpOptions);
-      physicalDispatched = true;
-      console.log(`✅ [Hardware Spooler] Paper job successfully spooled to ${targetPrinter}!`);
+      try {
+        await ptp.print(localFilePath, ptpOptions);
+        physicalDispatched = true;
+        console.log(`✅ [Hardware Spooler] Paper job successfully spooled to ${targetPrinter}!`);
+      } catch (spoolErr) {
+        console.warn(`[Hardware Spooler] Full specs print failed (${spoolErr.message}). Retrying with safe basic flags...`);
+        try {
+          await ptp.print(localFilePath, {
+            printer: targetPrinter,
+            copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
+            silent: true
+          });
+          physicalDispatched = true;
+          console.log(`✅ [Hardware Spooler] Paper job spooled via basic print to ${targetPrinter}!`);
+        } catch (basicErr) {
+          console.warn(`[Hardware Spooler] Basic ptp print failed (${basicErr.message}). Retrying with Windows shell PrintTo...`);
+          try {
+            const escapedPath = localFilePath.replace(/'/g, "''");
+            const escapedPrinter = targetPrinter.replace(/'/g, "''");
+            const psCmd = `Start-Process -FilePath '${escapedPath}' -Verb PrintTo -ArgumentList '"${escapedPrinter}"' -PassThru | Wait-Process -Timeout 15`;
+            await new Promise((resolve, reject) => {
+              require('child_process').exec(`powershell.exe -Command "${psCmd}"`, (err) => {
+                if (err) reject(err);
+                else resolve();
+              });
+            });
+            physicalDispatched = true;
+            console.log(`✅ [Hardware Spooler] Paper job spooled via Windows PrintTo to ${targetPrinter}!`);
+          } catch (winErr) {
+            console.error(`❌ [Hardware Spooler] All print attempts failed for ${targetPrinter}:`, winErr);
+            throw new Error(`Physical print failed on '${targetPrinter}'. Please check if printer is online, has paper, and is selected in Windows.`);
+          }
+        }
+      }
     } else {
       console.log(`ℹ️ [Simulator Spooler] No physical printer assigned. Saving high-fidelity proof.`);
     }
