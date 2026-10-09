@@ -69,6 +69,7 @@ function startInternalServer(distDir) {
       const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
       const target = `${backendBase}${req.originalUrl}`;
       try {
+        const isSSE = Boolean(req.headers.accept && req.headers.accept.includes('text/event-stream'));
         const headers = { ...req.headers };
         delete headers.host;
         delete headers['content-length'];
