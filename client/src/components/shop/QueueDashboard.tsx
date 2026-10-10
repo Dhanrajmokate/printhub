@@ -22,6 +22,10 @@ export const QueueDashboard: React.FC = () => {
   } | null>(null);
   const { showToast } = useToast();
 
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+  const [hasPhysicalPrinter, setHasPhysicalPrinter] = useState<boolean | null>(null);
+  const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
+
   const fetchQueue = async () => {
     try {
       const res = await api.get('/orders/shop/queue');
@@ -47,6 +51,21 @@ export const QueueDashboard: React.FC = () => {
       fetchQueue();
     }, 8000);
 
+    // If running in Desktop app, poll real-time physical hardware status every 3.5s
+    let hardwarePollInterval: any = null;
+    if (isElectron && window.electronAPI?.getSystemPrinters) {
+      const checkHardware = () => {
+        window.electronAPI.getSystemPrinters().then((res) => {
+          if (res?.success) {
+            setHasPhysicalPrinter(Boolean(res.hasPhysicalPrinter));
+            setConnectedPrinters(res.connectedPhysicalPrinters || []);
+          }
+        }).catch(() => {});
+      };
+      checkHardware();
+      hardwarePollInterval = setInterval(checkHardware, 3500);
+    }
+
     // SSE listeners for live new orders and status changes
     const unsubNewOrder = sseClient.on('new_order', async (data: any) => {
       showToast('info', 'New Print Order Received!', `Order #${data.orderNumber} from ${data.customerName} (₹${data.totalAmount?.toFixed(2) || '0.00'})`);
@@ -58,7 +77,7 @@ export const QueueDashboard: React.FC = () => {
           setHistoryOrders(res.data.history);
 
           // Check if native Desktop Auto-Print is active
-          if (typeof window !== 'undefined' && window.electronAPI?.getConfig) {
+          if (isElectron && window.electronAPI?.getConfig) {
             const cfg = await window.electronAPI.getConfig().catch(() => null);
             if (cfg?.autoPrint) {
               const targetOrder = res.data.queue.find((o: Order) => o.id === data.orderId || o.orderNumber === data.orderNumber);
@@ -83,48 +102,66 @@ export const QueueDashboard: React.FC = () => {
 
     return () => {
       clearInterval(pollInterval);
+      if (hardwarePollInterval) clearInterval(hardwarePollInterval);
       unsubNewOrder();
       unsubQueue();
     };
-  }, []);
+  }, [isElectron]);
 
   const handleManualPrint = async (orderId: string, itemId: string, itemTitle: string) => {
+    // 1. Strict physical hardware offline check for Desktop App
+    if (isElectron && window.electronAPI?.getSystemPrinters) {
+      try {
+        const printerRes = await window.electronAPI.getSystemPrinters();
+        if (!printerRes?.hasPhysicalPrinter) {
+          showToast('error', 'Printer Offline', 'No physical printer is currently connected. Please plug in your USB or Wi-Fi printer and turn it on to print.');
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Printer check error:', checkErr);
+      }
+    }
+
     setPrintingItemId(itemId);
     try {
       const order = queueOrders.find((o) => o.id === orderId);
       const item = order?.items.find((i) => i.id === itemId);
 
-      const res = await api.post(`/orders/${orderId}/items/${itemId}/print`);
-
-      // If running inside native Electron Desktop App, dispatch directly to physical hardware!
-      if (typeof window !== 'undefined' && window.electronAPI?.printJob) {
-        const itemResult = res.data?.result || {};
+      // 2. If running inside native Electron Desktop App, dispatch directly to physical hardware FIRST!
+      if (isElectron && window.electronAPI?.printJob) {
         const baseServer = getApiBaseUrl().replace(/\/api$/, '');
-        const targetStoredFile = itemResult.storedFileName || item?.storedFileName;
+        const targetStoredFile = item?.storedFileName;
         const targetFileUrl = targetStoredFile
           ? `${baseServer}/uploads/raw/${targetStoredFile}`
-          : itemResult.fileUrl || '';
+          : '';
 
-        await window.electronAPI.printJob({
-          orderNumber: res.data?.orderNumber || order?.orderNumber || 'ORD',
+        const printDispatchRes = await window.electronAPI.printJob({
+          orderNumber: order?.orderNumber || 'ORD',
           originalFileName: itemTitle || item?.originalFileName || 'document.pdf',
           fileUrl: targetFileUrl,
-          copies: itemResult.copies || item?.copies || 1,
-          colorMode: itemResult.colorMode || item?.colorMode || 'BW',
-          duplexMode: itemResult.duplexMode || item?.duplexMode || 'SINGLE',
-          paperSize: itemResult.paperSize || item?.paperSize || 'A4',
-          pageRange: itemResult.pageRange || item?.pageRange || 'ALL',
-          scaling: itemResult.scaling || item?.scaling || 'fit',
-          orientation: itemResult.orientation || item?.orientation || 'portrait'
-        }).catch((e) => console.warn('[Desktop Spooler] Physical dispatch:', e));
+          copies: item?.copies || 1,
+          colorMode: item?.colorMode || 'BW',
+          duplexMode: item?.duplexMode || 'SINGLE',
+          paperSize: item?.paperSize || 'A4',
+          pageRange: item?.pageRange || 'ALL',
+          scaling: item?.scaling || 'fit',
+          orientation: item?.orientation || 'portrait'
+        });
+
+        if (!printDispatchRes?.success) {
+          throw new Error(printDispatchRes?.message || 'Hardware print dispatch failed. Printer may be offline or disconnected.');
+        }
       }
 
+      // 3. Mark as printed on server after physical spool succeeds (or in web simulation mode)
+      const res = await api.post(`/orders/${orderId}/items/${itemId}/print`);
+
       if (res.data.success) {
-        showToast('success', 'Print Job Completed', `${itemTitle} spooled to ${res.data.result?.printerName || 'Printer'}`);
+        showToast('success', 'Print Job Completed', `${itemTitle} spooled to ${res.data.result?.printerName || connectedPrinters[0] || 'Physical Printer'}`);
         fetchQueue();
       }
     } catch (err: any) {
-      showToast('error', 'Print Failed', err.response?.data?.message || 'Failed to execute print job');
+      showToast('error', 'Print Failed', err.response?.data?.message || err.message || 'Failed to execute print job');
       fetchQueue();
     } finally {
       setPrintingItemId(null);
@@ -190,6 +227,40 @@ export const QueueDashboard: React.FC = () => {
           <span>Refresh Queue</span>
         </button>
       </div>
+
+      {/* Desktop Hardware Real-Time Status Bar */}
+      {isElectron && (
+        <div
+          className={`px-4 py-3 rounded-2xl border text-xs flex items-center justify-between gap-3 transition-all ${
+            hasPhysicalPrinter
+              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-200 shadow-sm'
+              : 'bg-rose-950/40 border-rose-800/60 text-rose-200 shadow-sm'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                hasPhysicalPrinter ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+              }`}
+            />
+            <span>
+              <strong>Hardware Status:</strong>{' '}
+              {hasPhysicalPrinter
+                ? `Physical Printer Online (${connectedPrinters.join(', ') || 'Ready'}). Auto & manual prints will spool directly to paper.`
+                : `Offline (No physical USB or Wi-Fi printer connected). Plug in your printer to enable printing.`}
+            </span>
+          </div>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider shrink-0 ${
+              hasPhysicalPrinter
+                ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                : 'bg-rose-950 text-rose-300 border-rose-700'
+            }`}
+          >
+            {hasPhysicalPrinter ? 'Online' : 'Offline'}
+          </span>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">

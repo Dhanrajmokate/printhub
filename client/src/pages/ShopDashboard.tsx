@@ -20,21 +20,39 @@ export const ShopDashboard: React.FC = () => {
   const [currentServerUrl, setCurrentServerUrl] = useState('http://localhost:8000');
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const [autoPrint, setAutoPrint] = useState(false);
+  const [hasPhysicalPrinter, setHasPhysicalPrinter] = useState<boolean | null>(null);
+  const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
 
   useEffect(() => {
     const savedUrl = localStorage.getItem('printhub_server_url') || 'http://localhost:8000';
     setCurrentServerUrl(savedUrl);
-    if (isElectron && window.electronAPI?.getConfig) {
-      window.electronAPI.getConfig().then((cfg) => {
-        if (cfg) {
-          if (typeof cfg.autoPrint === 'boolean') {
-            setAutoPrint(cfg.autoPrint);
+    if (isElectron) {
+      if (window.electronAPI?.getConfig) {
+        window.electronAPI.getConfig().then((cfg) => {
+          if (cfg) {
+            if (typeof cfg.autoPrint === 'boolean') {
+              setAutoPrint(cfg.autoPrint);
+            }
+            if (cfg.backendUrl) {
+              setCurrentServerUrl(cfg.backendUrl);
+            }
           }
-          if (cfg.backendUrl) {
-            setCurrentServerUrl(cfg.backendUrl);
-          }
-        }
-      });
+        });
+      }
+
+      if (window.electronAPI?.getSystemPrinters) {
+        const queryPrinters = () => {
+          window.electronAPI.getSystemPrinters().then((res) => {
+            if (res?.success) {
+              setHasPhysicalPrinter(Boolean(res.hasPhysicalPrinter));
+              setConnectedPrinters(res.connectedPhysicalPrinters || []);
+            }
+          }).catch(() => {});
+        };
+        queryPrinters();
+        const pollInterval = setInterval(queryPrinters, 3500);
+        return () => clearInterval(pollInterval);
+      }
     }
   }, [isElectron]);
 
@@ -52,7 +70,7 @@ export const ShopDashboard: React.FC = () => {
       {/* Top Shop Banner */}
       <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-800">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center">
               <Store className="w-4 h-4" />
             </div>
@@ -61,9 +79,19 @@ export const ShopDashboard: React.FC = () => {
               Verified Partner
             </span>
             {isElectron && (
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-bold flex items-center gap-1">
-                <Monitor className="w-3 h-3 text-indigo-400" />
-                Desktop Spooler
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+                  hasPhysicalPrinter
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                    : 'bg-rose-950 text-rose-300 border-rose-800'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    hasPhysicalPrinter ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                {hasPhysicalPrinter ? `🟢 Online (${connectedPrinters[0] || 'Hardware Ready'})` : '🔴 Printer Offline'}
               </span>
             )}
           </div>

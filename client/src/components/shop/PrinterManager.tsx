@@ -33,6 +33,8 @@ export const PrinterManager: React.FC = () => {
 
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
+  const [hasPhysicalPrinter, setHasPhysicalPrinter] = useState<boolean>(false);
+  const [connectedPhysicalPrinters, setConnectedPhysicalPrinters] = useState<string[]>([]);
   const [defaultSystemPrinter, setDefaultSystemPrinter] = useState<string>('');
   const [selectedBwPrinter, setSelectedBwPrinter] = useState<string>('');
   const [selectedColorPrinter, setSelectedColorPrinter] = useState<string>('');
@@ -59,29 +61,49 @@ export const PrinterManager: React.FC = () => {
     fetchPrinters();
 
     if (isElectron && window.electronAPI?.getSystemPrinters) {
-      window.electronAPI.getSystemPrinters().then((res) => {
-        if (res?.success && Array.isArray(res.printers)) {
-          setSystemPrinters(res.printers);
-          if (res.defaultPrinter) {
-            setDefaultSystemPrinter(extractPrinterName(res.defaultPrinter));
+      const queryPrinters = () => {
+        window.electronAPI.getSystemPrinters().then((res) => {
+          if (res?.success && Array.isArray(res.printers)) {
+            setSystemPrinters(res.printers);
+            setHasPhysicalPrinter(Boolean(res.hasPhysicalPrinter));
+            setConnectedPhysicalPrinters(res.connectedPhysicalPrinters || []);
+            if (res.defaultPrinter) {
+              setDefaultSystemPrinter(extractPrinterName(res.defaultPrinter));
+            }
+            if (res.connectedPhysicalPrinters && res.connectedPhysicalPrinters.length > 0) {
+              const firstPhys = res.connectedPhysicalPrinters[0];
+              setSelectedBwPrinter((prev) => prev || firstPhys);
+              setSelectedColorPrinter((prev) => prev || firstPhys);
+            }
           }
-        }
-      }).catch((e) => console.warn('Could not query system printers:', e));
+        }).catch((e) => console.warn('Could not query system printers:', e));
+      };
+
+      queryPrinters();
+      const pollInterval = setInterval(queryPrinters, 3500);
+
       if (window.electronAPI?.getConfig) {
         window.electronAPI.getConfig().then((cfg) => {
           if (cfg?.bwPrinter) setSelectedBwPrinter(extractPrinterName(cfg.bwPrinter));
           if (cfg?.colorPrinter) setSelectedColorPrinter(extractPrinterName(cfg.colorPrinter));
         }).catch((e) => console.warn('Could not query config:', e));
       }
+
+      return () => clearInterval(pollInterval);
     }
   }, [isElectron]);
 
   const handlePrintTestPage = async (printerName?: string) => {
+    if (isElectron && !hasPhysicalPrinter) {
+      showToast('error', 'Printer Offline', 'No physical printer is currently connected. Please connect your USB or Wi-Fi printer.');
+      return;
+    }
+
     setIsTestPrinting(true);
     try {
       if (isElectron && window.electronAPI?.printJob) {
-        const target = printerName || selectedBwPrinter || defaultSystemPrinter;
-        await window.electronAPI.printJob({
+        const target = printerName || selectedBwPrinter || (connectedPhysicalPrinters[0] || defaultSystemPrinter);
+        const printRes = await window.electronAPI.printJob({
           orderNumber: 'TEST-PAGE',
           originalFileName: 'PrintHub_Physical_Hardware_Test.pdf',
           localPath: 'c:\\Users\\rahul\\OneDrive\\Desktop\\smart print\\shop-desktop\\test-page.pdf',
@@ -93,12 +115,17 @@ export const PrinterManager: React.FC = () => {
           paperSize: 'A4',
           pageRange: '1'
         });
-        showToast('success', 'Physical Print Sent!', `Test page spooled to ${target || 'Default Printer'}`);
+
+        if (printRes?.success) {
+          showToast('success', 'Physical Print Sent!', `Test page spooled to ${target || 'Physical Printer'}`);
+        } else {
+          showToast('error', 'Print Failed', printRes?.message || 'Could not spool to printer');
+        }
       } else {
         showToast('info', 'Web Mode', 'Test page simulation recorded.');
       }
     } catch (err: any) {
-      showToast('error', 'Test Print Error', err.message || 'Could not send test page');
+      showToast('error', 'Printer Offline / Error', err.message || 'Could not send test page');
     } finally {
       setIsTestPrinting(false);
     }
@@ -212,21 +239,46 @@ export const PrinterManager: React.FC = () => {
 
       {/* Native Desktop Physical Printers Section */}
       {isElectron && (
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 text-white space-y-4 shadow-xl">
+        <div
+          className={`p-5 rounded-3xl border text-white space-y-4 shadow-xl transition-all ${
+            hasPhysicalPrinter
+              ? 'bg-slate-900 border-emerald-800/80 shadow-emerald-950/20'
+              : 'bg-slate-900 border-rose-900/60 shadow-rose-950/20'
+          }`}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <div
+                className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
+                  hasPhysicalPrinter
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}
+              >
                 <Printer className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>Physical Windows Printers Detected</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px] font-bold border border-emerald-800">
-                    Live Spooler
+                  <span>{hasPhysicalPrinter ? 'Physical Hardware Connected' : 'No Physical Printer Connected'}</span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+                      hasPhysicalPrinter
+                        ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                        : 'bg-rose-950 text-rose-300 border-rose-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        hasPhysicalPrinter ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+                      }`}
+                    />
+                    {hasPhysicalPrinter ? `Online (${connectedPhysicalPrinters.join(', ')})` : 'Offline'}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400">
-                  {systemPrinters.length} printer(s) linked via Windows Print Spooler (winspool.drv).
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {hasPhysicalPrinter
+                    ? `Physical printer linked & ready for live paper prints.`
+                    : `Please plug in your USB cable or turn on your Wi-Fi printer to start printing.`}
                 </p>
               </div>
             </div>
@@ -235,7 +287,8 @@ export const PrinterManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAttributeTesterOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/25 flex items-center gap-2"
+                disabled={!hasPhysicalPrinter}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/25 flex items-center gap-2"
                 title="Test all granular print attributes (Duplex, Colors, Paper Sizes, Margins, Copies)"
               >
                 <Sliders className="w-3.5 h-3.5" />
@@ -245,11 +298,21 @@ export const PrinterManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handlePrintTestPage()}
-                disabled={isTestPrinting}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/25 flex items-center gap-2 disabled:opacity-50"
+                disabled={isTestPrinting || !hasPhysicalPrinter}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+                  hasPhysicalPrinter
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>{isTestPrinting ? 'Printing Test Page...' : 'Quick Test Page'}</span>
+                <span>
+                  {isTestPrinting
+                    ? 'Printing Test Page...'
+                    : hasPhysicalPrinter
+                    ? 'Quick Test Page'
+                    : 'Printer Offline'}
+                </span>
               </button>
             </div>
           </div>
@@ -265,16 +328,20 @@ export const PrinterManager: React.FC = () => {
                 onChange={(e) => handleUpdatePrinterConfig('bwPrinter', e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
               >
-                <option value="">Windows Default ({extractPrinterName(defaultSystemPrinter) || 'Default'})</option>
-                {(systemPrinters || []).map((p, idx) => {
-                  const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
-                  const isPhys = typeof p === 'object' && p !== null ? Boolean(p.isPhysical) : true;
-                  return (
-                    <option key={`bw-${pName}-${idx}`} value={pName}>
-                      {pName} {isPhys ? '🖨️ (Physical)' : '📄 (Virtual)'}
-                    </option>
-                  );
-                })}
+                {hasPhysicalPrinter ? (
+                  (systemPrinters || [])
+                    .filter((p) => p.isPhysical)
+                    .map((p, idx) => {
+                      const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
+                      return (
+                        <option key={`bw-${pName}-${idx}`} value={pName}>
+                          🖨️ {pName} {p.isOnline ? '(Online)' : '(Offline)'}
+                        </option>
+                      );
+                    })
+                ) : (
+                  <option value="">🔴 No physical printer connected (Connect USB/Wi-Fi printer)</option>
+                )}
               </select>
             </div>
 
@@ -287,16 +354,20 @@ export const PrinterManager: React.FC = () => {
                 onChange={(e) => handleUpdatePrinterConfig('colorPrinter', e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
               >
-                <option value="">Windows Default ({extractPrinterName(defaultSystemPrinter) || 'Default'})</option>
-                {(systemPrinters || []).map((p, idx) => {
-                  const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
-                  const isPhys = typeof p === 'object' && p !== null ? Boolean(p.isPhysical) : true;
-                  return (
-                    <option key={`color-${pName}-${idx}`} value={pName}>
-                      {pName} {isPhys ? '🖨️ (Physical)' : '📄 (Virtual)'}
-                    </option>
-                  );
-                })}
+                {hasPhysicalPrinter ? (
+                  (systemPrinters || [])
+                    .filter((p) => p.isPhysical)
+                    .map((p, idx) => {
+                      const pName = extractPrinterName(p) || `Printer ${idx + 1}`;
+                      return (
+                        <option key={`color-${pName}-${idx}`} value={pName}>
+                          🎨 {pName} {p.isOnline ? '(Online)' : '(Offline)'}
+                        </option>
+                      );
+                    })
+                ) : (
+                  <option value="">🔴 No physical printer connected (Connect USB/Wi-Fi printer)</option>
+                )}
               </select>
             </div>
           </div>
@@ -314,9 +385,19 @@ export const PrinterManager: React.FC = () => {
               <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
                 PrintHub Desktop Agent
               </h3>
-              <span className="flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Active on Ports 8001/8002
+              <span
+                className={`flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                  hasPhysicalPrinter
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    hasPhysicalPrinter ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  }`}
+                />
+                {hasPhysicalPrinter ? 'Hardware Online' : 'Awaiting USB/Wi-Fi Connection'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -390,12 +471,18 @@ export const PrinterManager: React.FC = () => {
                         <span className="font-medium uppercase">{printer.type} Printer</span>
                       </div>
                       {isElectron && (
-                        <div className="text-[11px] text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                          <span>Spooler Target:</span>
+                        <div
+                          className={`text-[11px] font-semibold flex items-center gap-1 mt-0.5 ${
+                            hasPhysicalPrinter
+                              ? 'text-emerald-500 dark:text-emerald-400'
+                              : 'text-rose-500 dark:text-rose-400'
+                          }`}
+                        >
+                          <span>Hardware Status:</span>
                           <span className="font-mono text-slate-700 dark:text-slate-300">
-                            {printer.type === 'COLOR'
-                              ? (selectedColorPrinter || defaultSystemPrinter || 'Windows Default')
-                              : (selectedBwPrinter || defaultSystemPrinter || 'Windows Default')}
+                            {hasPhysicalPrinter
+                              ? `🟢 ${selectedBwPrinter || connectedPhysicalPrinters[0] || 'Connected'}`
+                              : '🔴 Offline (No Hardware Connected)'}
                           </span>
                         </div>
                       )}
@@ -405,15 +492,25 @@ export const PrinterManager: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <span
                       className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                        (isElectron || isOnline)
+                        isElectron
+                          ? hasPhysicalPrinter
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900'
+                            : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
+                          : isOnline
                           ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900'
                           : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900'
                       }`}
                     >
                       {isElectron ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3" /> Ready (Spooler)
-                        </>
+                        hasPhysicalPrinter ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3" /> Online
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3 h-3" /> Offline
+                          </>
+                        )
                       ) : isOnline ? (
                         <>
                           <CheckCircle2 className="w-3 h-3" /> Online

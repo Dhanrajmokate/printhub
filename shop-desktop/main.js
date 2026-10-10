@@ -216,47 +216,115 @@ app.whenReady().then(() => {
   });
 });
 
-// Helper: Detect virtual / document-export printers
-function isVirtual(name) {
-  const lower = String(name || '').toLowerCase();
-  return (
-    lower.includes('onenote') ||
-    lower.includes('pdf') ||
-    lower.includes('xps') ||
-    lower.includes('fax') ||
-    lower.includes('solid edge') ||
-    lower.includes('writer') ||
-    lower.includes('distiller') ||
-    lower.includes('virtual')
-  );
+// Helper: Get detailed real-time Windows printer inventory with Online/Offline detection
+async function getDetailedSystemPrinters() {
+  return new Promise((resolve) => {
+    const psCmd = `Get-CimInstance Win32_Printer | Select-Object Name, PortName, DriverName, WorkOffline, PrinterStatus, ExtendedPrinterStatus, DetectedErrorState, Default | ConvertTo-Json -Compress`;
+    require('child_process').exec(`powershell.exe -NoProfile -NonInteractive -Command "${psCmd}"`, { timeout: 4000 }, async (err, stdout) => {
+      let rawList = [];
+      if (!err && stdout && stdout.trim()) {
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          rawList = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) {}
+      }
+
+      if (rawList.length === 0) {
+        const ptpPrinters = await ptp.getPrinters().catch(() => []);
+        rawList = (ptpPrinters || []).map((p) => ({
+          Name: typeof p === 'string' ? p : (p?.name || p?.deviceId || 'Printer'),
+          PortName: '',
+          DriverName: '',
+          WorkOffline: false,
+          PrinterStatus: 3
+        }));
+      }
+
+      const isVirtualPrinter = (name, port, driver) => {
+        const lowerName = String(name || '').toLowerCase();
+        const lowerPort = String(port || '').toLowerCase();
+        const lowerDriver = String(driver || '').toLowerCase();
+
+        if (
+          lowerPort === 'portprompt:' ||
+          lowerPort === 'nul:' ||
+          lowerPort === 'file:' ||
+          lowerPort === 'shrfax:' ||
+          lowerPort.includes('xpsport')
+        ) {
+          return true;
+        }
+
+        return (
+          lowerName.includes('onenote') ||
+          lowerName.includes('pdf') ||
+          lowerName.includes('xps') ||
+          lowerName.includes('fax') ||
+          lowerName.includes('solid edge') ||
+          lowerName.includes('writer') ||
+          lowerName.includes('distiller') ||
+          lowerName.includes('virtual') ||
+          lowerDriver.includes('pdf') ||
+          lowerDriver.includes('onenote') ||
+          lowerDriver.includes('xps') ||
+          lowerDriver.includes('fax')
+        );
+      };
+
+      const systemDefaultObj = rawList.find((p) => p.Default === true);
+      const defaultName = systemDefaultObj ? systemDefaultObj.Name : '';
+
+      const enriched = rawList.map((p) => {
+        const isVirtual = isVirtualPrinter(p.Name, p.PortName, p.DriverName);
+        const isOffline = Boolean(
+          p.WorkOffline === true ||
+          p.PrinterStatus === 7 ||
+          p.ExtendedPrinterStatus === 7 ||
+          (p.DetectedErrorState && p.DetectedErrorState !== 0)
+        );
+
+        return {
+          name: p.Name,
+          portName: p.PortName,
+          driverName: p.DriverName,
+          isPhysical: !isVirtual,
+          isVirtual: isVirtual,
+          isOnline: isVirtual ? true : !isOffline,
+          workOffline: Boolean(p.WorkOffline),
+          isDefault: Boolean(p.Default)
+        };
+      });
+
+      const physicalPrinters = enriched.filter((p) => p.isPhysical);
+      const onlinePhysicalPrinters = physicalPrinters.filter((p) => p.isOnline);
+
+      resolve({
+        success: true,
+        printers: enriched,
+        defaultPrinter: defaultName,
+        hasPhysicalPrinter: onlinePhysicalPrinters.length > 0,
+        physicalPrinterCount: physicalPrinters.length,
+        onlinePhysicalPrinterCount: onlinePhysicalPrinters.length,
+        connectedPhysicalPrinters: onlinePhysicalPrinters.map((p) => p.name)
+      });
+    });
+  });
 }
 
 // IPC: Get System Printers
 ipcMain.handle('get-system-printers', async () => {
   try {
-    const printers = await ptp.getPrinters();
-    const defaultPrinter = await ptp.getDefaultPrinter().catch(() => null);
-
-    const defaultPrinterName = typeof defaultPrinter === 'object' && defaultPrinter !== null
-      ? (defaultPrinter.name || defaultPrinter.deviceId || '')
-      : (typeof defaultPrinter === 'string' ? defaultPrinter : '');
-
-    const normalizedPrinters = (printers || []).map((p) => {
-      const pName = typeof p === 'string' ? p : (p?.name || p?.deviceId || 'Unknown Printer');
-      return {
-        ...(typeof p === 'object' && p !== null ? p : {}),
-        name: pName,
-        isPhysical: !isVirtual(pName)
-      };
-    });
-
-    return {
-      success: true,
-      defaultPrinter: defaultPrinterName,
-      printers: normalizedPrinters
-    };
+    const details = await getDetailedSystemPrinters();
+    return details;
   } catch (err) {
-    return { success: false, message: err.message, printers: [], defaultPrinter: '' };
+    return {
+      success: false,
+      message: err.message,
+      printers: [],
+      defaultPrinter: '',
+      hasPhysicalPrinter: false,
+      connectedPhysicalPrinters: []
+    };
   }
 });
 
@@ -304,31 +372,45 @@ ipcMain.handle('print-job', async (event, jobData) => {
       throw new Error('Document file could not be located or downloaded.');
     }
 
-    // 2. Resolve printer settings & attributes
+    // 2. Real-time physical printer validation
+    const printerDetails = await getDetailedSystemPrinters();
     const config = loadConfig();
-    const systemDefault = await ptp.getDefaultPrinter().catch(() => null);
-    const systemDefaultName = typeof systemDefault === 'object' && systemDefault !== null
-      ? (systemDefault.name || systemDefault.deviceId || '')
-      : (typeof systemDefault === 'string' ? systemDefault : '');
 
-    let targetPrinter = jobData.printerName || (jobData.colorMode === 'COLOR' ? config.colorPrinter : config.bwPrinter) || systemDefaultName;
+    let targetPrinter = jobData.printerName || (jobData.colorMode === 'COLOR' ? config.colorPrinter : config.bwPrinter);
     if (typeof targetPrinter === 'object' && targetPrinter !== null) {
       targetPrinter = targetPrinter.name || targetPrinter.deviceId || '';
     }
 
-    // Auto-detect first physical printer if targetPrinter is still empty or virtual
-    if (!targetPrinter || isVirtual(targetPrinter)) {
-      const allPrinters = await ptp.getPrinters().catch(() => []);
-      const physical = allPrinters.find((p) => {
-        const pName = typeof p === 'string' ? p : (p?.name || p?.deviceId || '');
-        return !isVirtual(pName);
-      });
-      if (physical) {
-        targetPrinter = typeof physical === 'string' ? physical : (physical.name || physical.deviceId);
-        console.log(`[Hardware Spooler] Auto-routed to physical printer: ${targetPrinter}`);
-      } else {
-        targetPrinter = systemDefaultName || (allPrinters[0] ? (typeof allPrinters[0] === 'string' ? allPrinters[0] : allPrinters[0].name) : '');
+    // Check if target printer is recognized
+    let targetObj = targetPrinter
+      ? printerDetails.printers.find((p) => p.name.toLowerCase() === targetPrinter.toLowerCase())
+      : null;
+
+    // If target is unassigned or is a virtual printer, auto-route to first connected physical printer
+    if (!targetPrinter || !targetObj || targetObj.isVirtual) {
+      const firstOnlinePhysical = printerDetails.printers.find((p) => p.isPhysical && p.isOnline);
+      if (firstOnlinePhysical) {
+        targetPrinter = firstOnlinePhysical.name;
+        targetObj = firstOnlinePhysical;
+        console.log(`[Hardware Spooler] Auto-routed to online physical printer: ${targetPrinter}`);
       }
+    }
+
+    // STRICT OFFLINE CHECK: If no physical printer is connected or target printer is offline, REFUSE to print!
+    if (!printerDetails.hasPhysicalPrinter && (!targetObj || targetObj.isVirtual)) {
+      const noPrinterErr = `Printer is OFFLINE. No physical printer is currently connected to this computer. Please plug in your USB/Wi-Fi printer and turn it on to print.`;
+      console.warn(`❌ [Hardware Spooler] ${noPrinterErr}`);
+      throw new Error(noPrinterErr);
+    }
+
+    if (targetObj && targetObj.isPhysical && !targetObj.isOnline) {
+      const offlineErr = `Printer '${targetPrinter}' is OFFLINE or disconnected. Please check the power and USB/Wi-Fi cable and try again.`;
+      console.warn(`❌ [Hardware Spooler] ${offlineErr}`);
+      throw new Error(offlineErr);
+    }
+
+    if (!targetPrinter) {
+      throw new Error('No physical printer is available. Please connect a physical printer.');
     }
 
     const finalSide = jobData.duplexMode === 'DUPLEX_SHORT'
@@ -351,63 +433,58 @@ ipcMain.handle('print-job', async (event, jobData) => {
       : undefined;
 
     let physicalDispatched = false;
-    let dispatchedPrinterName = targetPrinter || 'Default';
+    let dispatchedPrinterName = targetPrinter;
 
     // 3. Spool to Windows Hardware Printer with robust multi-tier fallback
-    if (targetPrinter) {
-      dispatchedPrinterName = targetPrinter;
-      console.log(`[Hardware Spooler] Dispatching to physical printer: ${targetPrinter}...`);
+    console.log(`[Hardware Spooler] Dispatching to physical printer: ${targetPrinter}...`);
 
-      const ptpOptions = {
-        printer: targetPrinter,
-        copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
-        side: finalSide,
-        subset: finalSubset,
-        scale: finalScale,
-        orientation: finalOrientation,
-        paperSize: jobData.paperSize || 'A4',
-        pages: jobData.pageRange && jobData.pageRange !== 'ALL' ? jobData.pageRange : undefined,
-        monochrome: jobData.colorMode === 'BW',
-        silent: true,
-        printDialog: false
-      };
+    const ptpOptions = {
+      printer: targetPrinter,
+      copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
+      side: finalSide,
+      subset: finalSubset,
+      scale: finalScale,
+      orientation: finalOrientation,
+      paperSize: jobData.paperSize || 'A4',
+      pages: jobData.pageRange && jobData.pageRange !== 'ALL' ? jobData.pageRange : undefined,
+      monochrome: jobData.colorMode === 'BW',
+      silent: true,
+      printDialog: false
+    };
 
+    try {
+      await ptp.print(localFilePath, ptpOptions);
+      physicalDispatched = true;
+      console.log(`✅ [Hardware Spooler] Paper job successfully spooled to ${targetPrinter}!`);
+    } catch (spoolErr) {
+      console.warn(`[Hardware Spooler] Full specs print failed (${spoolErr.message}). Retrying with safe basic flags...`);
       try {
-        await ptp.print(localFilePath, ptpOptions);
+        await ptp.print(localFilePath, {
+          printer: targetPrinter,
+          copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
+          silent: true
+        });
         physicalDispatched = true;
-        console.log(`✅ [Hardware Spooler] Paper job successfully spooled to ${targetPrinter}!`);
-      } catch (spoolErr) {
-        console.warn(`[Hardware Spooler] Full specs print failed (${spoolErr.message}). Retrying with safe basic flags...`);
+        console.log(`✅ [Hardware Spooler] Paper job spooled via basic print to ${targetPrinter}!`);
+      } catch (basicErr) {
+        console.warn(`[Hardware Spooler] Basic ptp print failed (${basicErr.message}). Retrying with Windows shell PrintTo...`);
         try {
-          await ptp.print(localFilePath, {
-            printer: targetPrinter,
-            copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
-            silent: true
+          const escapedPath = localFilePath.replace(/'/g, "''");
+          const escapedPrinter = targetPrinter.replace(/'/g, "''");
+          const psCmd = `Start-Process -FilePath '${escapedPath}' -Verb PrintTo -ArgumentList '"${escapedPrinter}"' -PassThru | Wait-Process -Timeout 15`;
+          await new Promise((resolve, reject) => {
+            require('child_process').exec(`powershell.exe -Command "${psCmd}"`, (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
           });
           physicalDispatched = true;
-          console.log(`✅ [Hardware Spooler] Paper job spooled via basic print to ${targetPrinter}!`);
-        } catch (basicErr) {
-          console.warn(`[Hardware Spooler] Basic ptp print failed (${basicErr.message}). Retrying with Windows shell PrintTo...`);
-          try {
-            const escapedPath = localFilePath.replace(/'/g, "''");
-            const escapedPrinter = targetPrinter.replace(/'/g, "''");
-            const psCmd = `Start-Process -FilePath '${escapedPath}' -Verb PrintTo -ArgumentList '"${escapedPrinter}"' -PassThru | Wait-Process -Timeout 15`;
-            await new Promise((resolve, reject) => {
-              require('child_process').exec(`powershell.exe -Command "${psCmd}"`, (err) => {
-                if (err) reject(err);
-                else resolve();
-              });
-            });
-            physicalDispatched = true;
-            console.log(`✅ [Hardware Spooler] Paper job spooled via Windows PrintTo to ${targetPrinter}!`);
-          } catch (winErr) {
-            console.error(`❌ [Hardware Spooler] All print attempts failed for ${targetPrinter}:`, winErr);
-            throw new Error(`Physical print failed on '${targetPrinter}'. Please check if printer is online, has paper, and is selected in Windows.`);
-          }
+          console.log(`✅ [Hardware Spooler] Paper job spooled via Windows PrintTo to ${targetPrinter}!`);
+        } catch (winErr) {
+          console.error(`❌ [Hardware Spooler] All print attempts failed for ${targetPrinter}:`, winErr);
+          throw new Error(`Physical print failed on '${targetPrinter}'. Please check if printer is online, has paper, and is connected.`);
         }
       }
-    } else {
-      console.log(`ℹ️ [Simulator Spooler] No physical printer assigned. Saving high-fidelity proof.`);
     }
 
     // 4. Save local audit receipt
@@ -440,9 +517,7 @@ ipcMain.handle('print-job', async (event, jobData) => {
       success: true,
       physicalDispatched,
       printerName: dispatchedPrinterName,
-      message: physicalDispatched
-        ? `Order #${jobData.orderNumber} dispatched to ${dispatchedPrinterName}`
-        : `Order #${jobData.orderNumber} spooled and proof recorded`
+      message: `Order #${jobData.orderNumber} dispatched to physical printer ${dispatchedPrinterName}`
     };
   } catch (err) {
     console.error('Print Error:', err);
