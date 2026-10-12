@@ -9,7 +9,11 @@
     "dist": "node node_modules/electron-builder/cli.js --win",
     "dist:dir": "node node_modules/electron-builder/cli.js --win --dir",
     "dist:portable": "node node_modules/electron-builder/cli.js --win portable",
-    "dist:installer": "node node_modules/electron-builder/cli.js --win nsis"
+    "dist:installer": "node node_modules/electron-builder/cli.js --win nsis",
+    "dist:ia32": "node node_modules/electron-builder/cli.js --win --ia32 --config.electronVersion=33.4.1",
+    "dist:dir:ia32": "node node_modules/electron-builder/cli.js --win --ia32 --dir --config.electronVersion=33.4.1",
+    "dist:portable:ia32": "node node_modules/electron-builder/cli.js --win portable --ia32 --config.electronVersion=33.4.1",
+    "dist:installer:ia32": "node node_modules/electron-builder/cli.js --win nsis --ia32 --config.electronVersion=33.4.1"
   },
   "build": {
     "appId": "com.printhub.shoppartner",
