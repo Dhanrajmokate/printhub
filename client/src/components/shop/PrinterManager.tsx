@@ -106,7 +106,6 @@ export const PrinterManager: React.FC = () => {
         const printRes = await window.electronAPI.printJob({
           orderNumber: 'TEST-PAGE',
           originalFileName: 'PrintHub_Physical_Hardware_Test.pdf',
-          localPath: 'c:\\Users\\rahul\\OneDrive\\Desktop\\smart print\\shop-desktop\\test-page.pdf',
           fileUrl: `${window.location.origin}/test-page.pdf`,
           printerName: target || undefined,
           copies: 1,
