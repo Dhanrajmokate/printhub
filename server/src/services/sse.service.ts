@@ -11,6 +11,19 @@ interface SSEClient {
 class SSEService {
   private clients: Map<string, SSEClient> = new Map();
 
+  constructor() {
+    // Send 25s keepalive ping comments to prevent cloud reverse proxies (Render, Cloudflare) from closing idle streams
+    setInterval(() => {
+      for (const client of this.clients.values()) {
+        try {
+          client.res.write(': keepalive\n\n');
+        } catch (e) {
+          this.removeClient(client.id);
+        }
+      }
+    }, 25000);
+  }
+
   addClient(id: string, userId: string, role: 'CUSTOMER' | 'SHOP', res: Response, shopId?: string) {
     this.clients.set(id, { id, userId, role, shopId, res });
     console.log(`[SSE] Client connected: ${id} (User: ${userId}, Role: ${role}, Shop: ${shopId || 'N/A'})`);
