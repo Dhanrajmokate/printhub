@@ -13,10 +13,15 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
     }
 
     const token = authHeader.split(' ')[1];
+    if (!token || token === 'undefined' || token === 'null') {
+      return res.status(401).json({ success: false, message: 'Authentication required. No token provided.' });
+    }
+
     const decoded = verifyToken(token);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.warn('[Auth Middleware] Token verification failed:', error?.message);
     return res.status(401).json({ success: false, message: 'Invalid or expired session token.' });
   }
 }

@@ -32,14 +32,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize from sessionStorage or localStorage (desktop app persistence)
   useEffect(() => {
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+      sseClient.disconnect();
+    };
+
+    window.addEventListener('printhub:unauthorized', handleUnauthorized);
+
     const savedToken = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
     const savedUser = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
 
-    if (savedToken && savedUser) {
+    if (savedToken && savedToken !== 'undefined' && savedToken !== 'null' && savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
       try {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
         sseClient.connect();
+
+        // Validate token with server in background to avoid silent stale sessions
+        api.get('/auth/me').catch((err) => {
+          if (err.response?.status === 401) {
+            handleUnauthorized();
+          }
+        });
       } catch (err) {
         sessionStorage.removeItem('printhub_token');
         sessionStorage.removeItem('printhub_user');
@@ -48,10 +63,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setIsLoading(false);
+
+    return () => {
+      window.removeEventListener('printhub:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const savedToken = sessionStorage.getItem('printhub_token');
+    const savedToken = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
     if (!savedToken) return;
 
     try {
@@ -59,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.data.success && res.data.user) {
         setUser(res.data.user);
         sessionStorage.setItem('printhub_user', JSON.stringify(res.data.user));
+        localStorage.setItem('printhub_user', JSON.stringify(res.data.user));
       }
     } catch (err) {
       console.warn('[Auth] Failed to refresh user profile:', err);
@@ -130,6 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(receivedUser);
         sessionStorage.setItem('printhub_token', receivedToken);
         sessionStorage.setItem('printhub_user', JSON.stringify(receivedUser));
+        localStorage.setItem('printhub_token', receivedToken);
+        localStorage.setItem('printhub_user', JSON.stringify(receivedUser));
         sseClient.connect();
         return { success: true, message: res.data.message };
       }

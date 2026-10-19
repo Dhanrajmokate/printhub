@@ -28,7 +28,7 @@ api.interceptors.request.use(
       }
     }
     const token = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
-    if (token) {
+    if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -47,6 +47,9 @@ api.interceptors.response.use(
       if (!isAuthRoute) {
         sessionStorage.removeItem('printhub_token');
         sessionStorage.removeItem('printhub_user');
+        localStorage.removeItem('printhub_token');
+        localStorage.removeItem('printhub_user');
+        window.dispatchEvent(new Event('printhub:unauthorized'));
       }
     }
     return Promise.reject(error);

@@ -18,7 +18,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   onOrderCreated
 }) => {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isAuthenticated } = useAuth();
   const { items, subtotal, selectedShop, clearCart } = useCart();
   const { showToast } = useToast();
 
@@ -119,6 +119,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleCheckout = async (isDirectTest = false) => {
+    if (!isAuthenticated || !user) {
+      setErrorMessage('You must be signed in to place an order. Please sign in or register first.');
+      return;
+    }
+
     if (!selectedShop) {
       setErrorMessage('Please select a print shop before checking out.');
       return;
@@ -260,7 +265,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'Payment processing failed. Please try again.');
+      if (err.response?.status === 401) {
+        setErrorMessage('Your login session has expired. Please log out and log in again to complete your order.');
+      } else {
+        setErrorMessage(err.response?.data?.message || err.message || 'Payment processing failed. Please try again.');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -734,35 +743,45 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         {/* Pinned Footer Actions */}
         <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0 space-y-2">
-          {/* Submit Action Button */}
-          <button
-            type="button"
-            onClick={handleCheckout}
-            disabled={isProcessing || (paymentMethod === 'WALLET' && !isWalletSufficient)}
-            className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
-              paymentMethod === 'RAZORPAY'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-500/25 hover:shadow-indigo-500/35'
-                : paymentMethod === 'SHOP_UPI_QR'
-                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25 hover:shadow-purple-500/35'
-                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25 hover:shadow-emerald-500/35'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isProcessing ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <ShieldCheck className="w-4 h-4" />
-                <span>
-                  {paymentMethod === 'RAZORPAY'
-                    ? `🚀 Pay ₹${subtotal.toFixed(2)} with Razorpay (Instant UPI)`
-                    : paymentMethod === 'SHOP_UPI_QR'
-                    ? `📸 Submit Order with Payment Proof (₹${subtotal.toFixed(2)})`
-                    : `👛 Pay ₹${subtotal.toFixed(2)} from PrintHub Wallet`}
-                </span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+          {!isAuthenticated ? (
+            <a
+              href="/auth"
+              className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all"
+            >
+              <User className="w-4 h-4" />
+              <span>Sign In to Complete Order (₹{subtotal.toFixed(2)})</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCheckout}
+              disabled={isProcessing || (paymentMethod === 'WALLET' && !isWalletSufficient)}
+              className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
+                paymentMethod === 'RAZORPAY'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-500/25 hover:shadow-indigo-500/35'
+                  : paymentMethod === 'SHOP_UPI_QR'
+                  ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25 hover:shadow-purple-500/35'
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25 hover:shadow-emerald-500/35'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {isProcessing ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>
+                    {paymentMethod === 'RAZORPAY'
+                      ? `🚀 Pay ₹${subtotal.toFixed(2)} with Razorpay (Instant UPI)`
+                      : paymentMethod === 'SHOP_UPI_QR'
+                      ? `📸 Submit Order with Payment Proof (₹${subtotal.toFixed(2)})`
+                      : `👛 Pay ₹${subtotal.toFixed(2)} from PrintHub Wallet`}
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          )}
 
           <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
