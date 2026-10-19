@@ -25,6 +25,61 @@ export const QueueDashboard: React.FC = () => {
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const [hasPhysicalPrinter, setHasPhysicalPrinter] = useState<boolean | null>(null);
   const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
+  const autoPrintingItemsRef = React.useRef<Set<string>>(new Set());
+
+  // Web Audio chime for incoming orders
+  const playOrderChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      // E5 tone (659 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(659.25, now);
+      gain1.gain.setValueAtTime(0.25, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      // G#5 tone (830 Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(830.61, now + 0.15);
+      gain2.gain.setValueAtTime(0.3, now + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.6);
+    } catch (e) {}
+  };
+
+  const processAutoPrint = async (ordersList: Order[]) => {
+    if (!isElectron || !window.electronAPI?.getConfig) return;
+    try {
+      const cfg = await window.electronAPI.getConfig().catch(() => null);
+      if (cfg?.autoPrint && ordersList?.length > 0) {
+        for (const order of ordersList) {
+          if (order.status === 'PENDING' && order.items) {
+            for (const item of order.items) {
+              if (item.status === 'PENDING' && !autoPrintingItemsRef.current.has(item.id)) {
+                autoPrintingItemsRef.current.add(item.id);
+                console.log(`[Auto-Print] Auto-dispatching job: ${item.originalFileName}`);
+                handleManualPrint(order.id, item.id, item.originalFileName);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  };
 
   const fetchQueue = async () => {
     try {
@@ -32,6 +87,7 @@ export const QueueDashboard: React.FC = () => {
       if (res.data.success) {
         setQueueOrders(res.data.queue);
         setHistoryOrders(res.data.history);
+        processAutoPrint(res.data.queue);
       }
     } catch (err) {
       console.error('Failed to fetch print queue:', err);
@@ -68,32 +124,9 @@ export const QueueDashboard: React.FC = () => {
 
     // SSE listeners for live new orders and status changes
     const unsubNewOrder = sseClient.on('new_order', async (data: any) => {
+      playOrderChime();
       showToast('info', 'New Print Order Received!', `Order #${data.orderNumber} from ${data.customerName} (₹${data.totalAmount?.toFixed(2) || '0.00'})`);
-      
-      try {
-        const res = await api.get('/orders/shop/queue');
-        if (res.data.success) {
-          setQueueOrders(res.data.queue);
-          setHistoryOrders(res.data.history);
-
-          // Check if native Desktop Auto-Print is active
-          if (isElectron && window.electronAPI?.getConfig) {
-            const cfg = await window.electronAPI.getConfig().catch(() => null);
-            if (cfg?.autoPrint) {
-              const targetOrder = res.data.queue.find((o: Order) => o.id === data.orderId || o.orderNumber === data.orderNumber);
-              if (targetOrder?.items) {
-                for (const item of targetOrder.items) {
-                  if (item.status === 'PENDING') {
-                    handleManualPrint(targetOrder.id, item.id, item.originalFileName);
-                  }
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        fetchQueue();
-      }
+      fetchQueue();
     });
 
     const unsubQueue = sseClient.on('queue_updated', () => {

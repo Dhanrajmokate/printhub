@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -532,6 +532,20 @@ ipcMain.handle('print-job', async (event, jobData) => {
         2
       )
     );
+
+    // 5. Native OS notification & open proof for virtual / hardware feedback
+    try {
+      if (Notification && Notification.isSupported()) {
+        new Notification({
+          title: `🖨️ Order #${jobData.orderNumber || 'N/A'} Printed!`,
+          body: `${jobData.originalFileName || 'Document'} (${jobData.colorMode || 'BW'}, Copies: ${jobData.copies || 1}) -> ${dispatchedPrinterName}`
+        }).show();
+      }
+      // If virtual printer or PrintHub Studio Laser 1, open proof file so user visually sees the print result
+      if (targetObj?.isVirtual || dispatchedPrinterName.includes('PrintHub Studio') || dispatchedPrinterName.includes('Laser 1')) {
+        shell.openPath(proofFile);
+      }
+    } catch (notifErr) {}
 
     return {
       success: true,
