@@ -125,11 +125,23 @@ function startInternalServer(distDir) {
       res.sendFile(path.join(distDir, 'index.html'));
     });
 
-    internalServer = internalApp.listen(0, '127.0.0.1', () => {
-      const port = internalServer.address().port;
-      console.log(`[Embedded Web Server] Serving shop client on http://127.0.0.1:${port}`);
-      resolve(`http://127.0.0.1:${port}/shop`);
-    });
+    // Use stable port 8345 so localStorage and login state persist across app restarts
+    const preferredPort = 8345;
+    const serverInstance = internalApp.listen(preferredPort, '127.0.0.1')
+      .on('listening', () => {
+        internalServer = serverInstance;
+        console.log(`[Embedded Web Server] Serving shop client on http://127.0.0.1:${preferredPort}`);
+        resolve(`http://127.0.0.1:${preferredPort}/shop`);
+      })
+      .on('error', (err) => {
+        console.warn(`[Embedded Web Server] Preferred port ${preferredPort} in use or failed (${err.code}). Falling back to dynamic port...`);
+        const fallbackServer = internalApp.listen(0, '127.0.0.1', () => {
+          internalServer = fallbackServer;
+          const fallbackPort = fallbackServer.address().port;
+          console.log(`[Embedded Web Server] Serving shop client on fallback http://127.0.0.1:${fallbackPort}`);
+          resolve(`http://127.0.0.1:${fallbackPort}/shop`);
+        });
+      });
   });
 }
 
@@ -357,14 +369,22 @@ ipcMain.handle('print-job', async (event, jobData) => {
         const base64Str = base64Index !== -1 ? jobData.fileUrl.substring(base64Index + 8) : jobData.fileUrl;
         fs.writeFileSync(localFilePath, Buffer.from(base64Str, 'base64'));
       } else {
+        let downloadUrl = jobData.fileUrl;
+        if (downloadUrl.startsWith('/')) {
+          const cfg = loadConfig();
+          const backendBase = (cfg.backendUrl || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
+          downloadUrl = `${backendBase}${downloadUrl}`;
+        }
+        console.log(`[Desktop Spooler] Fetching print document from: ${downloadUrl}`);
         const response = await axios({
-          url: jobData.fileUrl,
+          url: downloadUrl,
           method: 'GET',
           responseType: 'arraybuffer',
-          timeout: 30000
+          timeout: 45000
         });
 
         fs.writeFileSync(localFilePath, Buffer.from(response.data));
+        console.log(`[Desktop Spooler] Document downloaded successfully (${response.data.length} bytes) -> ${localFilePath}`);
       }
     }
 

@@ -129,7 +129,11 @@ export const QueueDashboard: React.FC = () => {
 
       // 2. If running inside native Electron Desktop App, dispatch directly to physical hardware FIRST!
       if (isElectron && window.electronAPI?.printJob) {
-        const baseServer = getApiBaseUrl().replace(/\/api$/, '');
+        let baseServer = getApiBaseUrl().replace(/\/api$/, '');
+        if (!baseServer || baseServer.startsWith('/')) {
+          const cfg = await window.electronAPI.getConfig?.().catch(() => null);
+          baseServer = (cfg?.backendUrl || localStorage.getItem('printhub_server_url') || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
+        }
         const targetStoredFile = item?.storedFileName;
         const targetFileUrl = targetStoredFile
           ? `${baseServer}/uploads/raw/${targetStoredFile}`

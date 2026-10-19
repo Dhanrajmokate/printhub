@@ -40,29 +40,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     window.addEventListener('printhub:unauthorized', handleUnauthorized);
 
-    const savedToken = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
-    const savedUser = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
+    const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
 
-    if (savedToken && savedToken !== 'undefined' && savedToken !== 'null' && savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        sseClient.connect();
+    const initAuth = async () => {
+      let savedToken = sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token');
+      let savedUser = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
 
-        // Validate token with server in background to avoid silent stale sessions
-        api.get('/auth/me').catch((err) => {
-          if (err.response?.status === 401) {
-            handleUnauthorized();
+      // If missing in storage, fallback to Electron config
+      if ((!savedToken || !savedUser) && isElectron && (window as any).electronAPI?.getConfig) {
+        try {
+          const cfg = await (window as any).electronAPI.getConfig();
+          if (cfg?.shopToken && cfg?.shopUser) {
+            savedToken = cfg.shopToken;
+            savedUser = typeof cfg.shopUser === 'string' ? cfg.shopUser : JSON.stringify(cfg.shopUser);
+            localStorage.setItem('printhub_token', savedToken);
+            localStorage.setItem('printhub_user', savedUser);
           }
-        });
-      } catch (err) {
-        sessionStorage.removeItem('printhub_token');
-        sessionStorage.removeItem('printhub_user');
-        localStorage.removeItem('printhub_token');
-        localStorage.removeItem('printhub_user');
+        } catch (e) {}
       }
-    }
-    setIsLoading(false);
+
+      if (savedToken && savedToken !== 'undefined' && savedToken !== 'null' && savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
+        try {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+          sseClient.connect();
+
+          // Validate token with server in background to avoid silent stale sessions
+          api.get('/auth/me').catch((err) => {
+            if (err.response?.status === 401) {
+              handleUnauthorized();
+            }
+          });
+        } catch (err) {
+          sessionStorage.removeItem('printhub_token');
+          sessionStorage.removeItem('printhub_user');
+          localStorage.removeItem('printhub_token');
+          localStorage.removeItem('printhub_user');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
 
     return () => {
       window.removeEventListener('printhub:unauthorized', handleUnauthorized);
@@ -96,6 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.setItem('printhub_user', JSON.stringify(receivedUser));
         localStorage.setItem('printhub_token', receivedToken);
         localStorage.setItem('printhub_user', JSON.stringify(receivedUser));
+        if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
+          (window as any).electronAPI.getConfig().then((cfg: any) => {
+            (window as any).electronAPI.saveConfig({ ...cfg, shopToken: receivedToken, shopUser: receivedUser });
+          }).catch(() => {});
+        }
         sseClient.connect();
         return { success: true };
       }
@@ -152,6 +176,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.setItem('printhub_user', JSON.stringify(receivedUser));
         localStorage.setItem('printhub_token', receivedToken);
         localStorage.setItem('printhub_user', JSON.stringify(receivedUser));
+        if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
+          (window as any).electronAPI.getConfig().then((cfg: any) => {
+            (window as any).electronAPI.saveConfig({ ...cfg, shopToken: receivedToken, shopUser: receivedUser });
+          }).catch(() => {});
+        }
         sseClient.connect();
         return { success: true, message: res.data.message };
       }
@@ -170,6 +199,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('printhub_user');
     localStorage.removeItem('printhub_token');
     localStorage.removeItem('printhub_user');
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
+      (window as any).electronAPI.getConfig().then((cfg: any) => {
+        (window as any).electronAPI.saveConfig({ ...cfg, shopToken: '', shopUser: null });
+      }).catch(() => {});
+    }
     setToken(null);
     setUser(null);
   };

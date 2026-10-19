@@ -191,7 +191,7 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setServerUrl('https://printhub-api.onrender.com');
+                  setServerUrl('https://printhub-cloud-api.onrender.com');
                   setTestResult(null);
                 }}
                 className="p-3 rounded-2xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 text-left flex items-start gap-2.5 transition-all"
