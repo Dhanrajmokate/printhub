@@ -1,9 +1,15 @@
 import { Router, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { prisma } from '../prisma.js';
 import { authenticate, AuthenticatedRequest, requireRole } from '../middleware/auth.js';
 import { calculateItemPrice } from '../utils/pricing.js';
 import { routePrintJob } from '../services/printerRouting.service.js';
 import { sseService } from '../services/sse.service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = Router();
 
@@ -676,6 +682,114 @@ router.delete('/history/clear-all', requireRole(['CUSTOMER']), async (req: Authe
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: 'Failed to clear history' });
+  }
+});
+
+// 10. SHOP DELETE ENTIRE ORDER
+router.delete('/shop/:id', requireRole(['SHOP']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const shop = await prisma.shop.findUnique({
+      where: { userId: req.user!.userId }
+    });
+
+    if (!shop) {
+      return res.status(404).json({ success: false, message: 'Shop not found' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: true }
+    });
+
+    if (!order || order.shopId !== shop.id) {
+      return res.status(404).json({ success: false, message: 'Order not found for this shop' });
+    }
+
+    // Attempt clean up of local raw files if they exist
+    for (const item of order.items) {
+      if (item.storedFileName) {
+        const rawPath = path.resolve(__dirname, '../../uploads/raw', item.storedFileName);
+        if (fs.existsSync(rawPath)) {
+          fs.unlink(rawPath, () => {});
+        }
+      }
+    }
+
+    await prisma.order.delete({
+      where: { id: order.id }
+    });
+
+    sseService.notifyShop(shop.id, 'queue_updated', {
+      orderId: order.id,
+      status: 'DELETED'
+    });
+
+    return res.json({
+      success: true,
+      message: `Order #${order.orderNumber} deleted successfully.`
+    });
+  } catch (error: any) {
+    console.error('Shop delete order error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to delete order' });
+  }
+});
+
+// 11. SHOP DELETE INDIVIDUAL ORDER ITEM (DOCUMENT)
+router.delete('/shop/:orderId/items/:itemId', requireRole(['SHOP']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderId, itemId } = req.params;
+    const shop = await prisma.shop.findUnique({
+      where: { userId: req.user!.userId }
+    });
+
+    if (!shop) {
+      return res.status(404).json({ success: false, message: 'Shop not found' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true }
+    });
+
+    if (!order || order.shopId !== shop.id) {
+      return res.status(404).json({ success: false, message: 'Order not found for this shop' });
+    }
+
+    const itemToDelete = order.items.find((i) => i.id === itemId);
+    if (!itemToDelete) {
+      return res.status(404).json({ success: false, message: 'Item not found in this order' });
+    }
+
+    if (itemToDelete.storedFileName) {
+      const rawPath = path.resolve(__dirname, '../../uploads/raw', itemToDelete.storedFileName);
+      if (fs.existsSync(rawPath)) {
+        fs.unlink(rawPath, () => {});
+      }
+    }
+
+    if (order.items.length <= 1) {
+      await prisma.order.delete({
+        where: { id: order.id }
+      });
+    } else {
+      await prisma.orderItem.delete({
+        where: { id: itemId }
+      });
+    }
+
+    sseService.notifyShop(shop.id, 'queue_updated', {
+      orderId: order.id,
+      itemId,
+      status: 'DELETED'
+    });
+
+    return res.json({
+      success: true,
+      message: `Document '${itemToDelete.originalFileName}' deleted successfully.`
+    });
+  } catch (error: any) {
+    console.error('Shop delete item error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to delete document' });
   }
 });
 

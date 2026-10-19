@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Printer, CheckCircle2, User, Phone, Clock, FileText, AlertCircle, RefreshCw, Sparkles, Check, Camera, ExternalLink, X } from 'lucide-react';
+import { Play, Printer, CheckCircle2, User, Phone, Clock, FileText, AlertCircle, RefreshCw, Sparkles, Check, Camera, ExternalLink, X, Trash2 } from 'lucide-react';
 import { Order, OrderItem } from '../../types/index.js';
 import { api, getApiBaseUrl } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -217,6 +217,38 @@ export const QueueDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!window.confirm(`Delete Order #${orderNumber} and all its documents from the queue?`)) return;
+    try {
+      const res = await api.delete(`/orders/shop/${orderId}`);
+      if (res.data.success) {
+        showToast('info', 'Order Removed', `Order #${orderNumber} deleted.`);
+        setQueueOrders((prev) => prev.filter((o) => o.id !== orderId));
+        setHistoryOrders((prev) => prev.filter((o) => o.id !== orderId));
+      }
+    } catch (err: any) {
+      showToast('error', 'Delete Failed', err.response?.data?.message || 'Failed to delete order');
+    }
+  };
+
+  const handleDeleteItem = async (orderId: string, itemId: string, itemTitle: string) => {
+    if (!window.confirm(`Delete document '${itemTitle}'?`)) return;
+    try {
+      const res = await api.delete(`/orders/shop/${orderId}/items/${itemId}`);
+      if (res.data.success) {
+        showToast('info', 'Document Removed', `'${itemTitle}' deleted.`);
+        setQueueOrders((prev) =>
+          prev
+            .map((o) => (o.id !== orderId ? o : { ...o, items: o.items.filter((i) => i.id !== itemId) }))
+            .filter((o) => o.items.length > 0)
+        );
+        fetchQueue();
+      }
+    } catch (err: any) {
+      showToast('error', 'Delete Failed', err.response?.data?.message || 'Failed to delete document');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header & Queue Switcher */}
@@ -389,6 +421,16 @@ export const QueueDashboard: React.FC = () => {
                           <span>View Payment Photo</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrder(order.id, order.orderNumber)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[11px] font-bold transition-all"
+                        title="Delete entire order"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Order</span>
+                      </button>
                     </div>
                   </div>
 
@@ -498,6 +540,15 @@ export const QueueDashboard: React.FC = () => {
                                 <span>Print on {item.colorMode === 'COLOR' ? 'Color' : 'B&W'}</span>
                               </button>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(order.id, item.id, item.originalFileName)}
+                              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title={`Delete ${item.originalFileName}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -602,6 +653,14 @@ export const QueueDashboard: React.FC = () => {
                   <div className="text-right font-mono font-bold text-slate-800 dark:text-slate-200">
                     ₹{order.totalAmount.toFixed(2)}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteOrder(order.id, order.orderNumber)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    title={`Delete Order #${order.orderNumber} from history`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             ))}
