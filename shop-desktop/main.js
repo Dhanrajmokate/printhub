@@ -228,28 +228,25 @@ app.whenReady().then(() => {
   });
 });
 
-// Helper: Get detailed real-time Windows printer inventory with Online/Offline detection
+// Helper: Get detailed real-time Windows printer inventory with true physical hardware detection
 async function getDetailedSystemPrinters() {
   return new Promise((resolve) => {
-    const psCmd = `Get-CimInstance Win32_Printer | Select-Object Name, PortName, DriverName, WorkOffline, PrinterStatus, ExtendedPrinterStatus, DetectedErrorState, Default | ConvertTo-Json -Compress`;
-    require('child_process').exec(`powershell.exe -NoProfile -NonInteractive -Command "${psCmd}"`, { timeout: 4000 }, async (err, stdout) => {
-      let rawList = [];
+    const psCmd = `& {
+      $p = Get-CimInstance Win32_Printer | Select-Object Name, PortName, DriverName, WorkOffline, PrinterStatus, ExtendedPrinterStatus, DetectedErrorState, Default;
+      $u = Get-CimInstance Win32_PnPEntity | Where-Object { ($_.PNPClass -eq 'Printer' -or $_.Service -eq 'usbprint' -or $_.DeviceID -like '*USBPRINT*') -and $_.Status -eq 'OK' } | Select-Object Name, DeviceID;
+      [PSCustomObject]@{ Printers = @($p); UsbPrinters = @($u) } | ConvertTo-Json -Depth 3 -Compress
+    }`;
+
+    require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], { timeout: 4500 }, async (err, stdout) => {
+      let rawPrinters = [];
+      let activeUsbPrinters = [];
+
       if (!err && stdout && stdout.trim()) {
         try {
           const parsed = JSON.parse(stdout.trim());
-          rawList = Array.isArray(parsed) ? parsed : [parsed];
+          rawPrinters = Array.isArray(parsed.Printers) ? parsed.Printers : (parsed.Printers ? [parsed.Printers] : []);
+          activeUsbPrinters = Array.isArray(parsed.UsbPrinters) ? parsed.UsbPrinters : (parsed.UsbPrinters ? [parsed.UsbPrinters] : []);
         } catch (e) {}
-      }
-
-      if (rawList.length === 0) {
-        const ptpPrinters = await ptp.getPrinters().catch(() => []);
-        rawList = (ptpPrinters || []).map((p) => ({
-          Name: typeof p === 'string' ? p : (p?.name || p?.deviceId || 'Printer'),
-          PortName: '',
-          DriverName: '',
-          WorkOffline: false,
-          PrinterStatus: 3
-        }));
       }
 
       const isVirtualPrinter = (name, port, driver) => {
@@ -257,43 +254,70 @@ async function getDetailedSystemPrinters() {
         const lowerPort = String(port || '').toLowerCase();
         const lowerDriver = String(driver || '').toLowerCase();
 
+        // 1. Virtual, software, or legacy ports that do NOT represent active physical printers
         if (
+          !lowerPort ||
           lowerPort === 'portprompt:' ||
           lowerPort === 'nul:' ||
           lowerPort === 'file:' ||
           lowerPort === 'shrfax:' ||
-          lowerPort.includes('xpsport')
+          lowerPort.includes('xpsport') ||
+          lowerPort.includes('pdf') ||
+          lowerPort.startsWith('lpt') || // Legacy parallel ports (LPT1:, LPT2:, etc.)
+          lowerPort.startsWith('com')    // Legacy serial ports (COM1:, COM2:, etc.)
         ) {
           return true;
         }
 
-        return (
-          lowerName.includes('onenote') ||
-          lowerName.includes('pdf') ||
-          lowerName.includes('xps') ||
-          lowerName.includes('fax') ||
-          lowerName.includes('solid edge') ||
-          lowerName.includes('writer') ||
-          lowerName.includes('distiller') ||
-          lowerName.includes('virtual') ||
-          lowerDriver.includes('pdf') ||
-          lowerDriver.includes('onenote') ||
-          lowerDriver.includes('xps') ||
-          lowerDriver.includes('fax')
-        );
+        // 2. Virtual keywords in printer name or driver
+        const virtualKeywords = [
+          'onenote', 'pdf', 'xps', 'fax', 'solid edge', 'writer',
+          'distiller', 'virtual', 'printhub', 'dummy', 'test', 'cutepdf',
+          'foxit', 'nitro', 'dopdf', 'bullzip', 'snagit', 'image', 'scan',
+          'docu', 'send to'
+        ];
+
+        if (virtualKeywords.some((kw) => lowerName.includes(kw) || lowerDriver.includes(kw))) {
+          return true;
+        }
+
+        // 3. Must be connected over recognized modern physical printer interface
+        const isPhysicalPort =
+          lowerPort.startsWith('usb') ||
+          lowerPort.startsWith('wsd') ||
+          lowerPort.startsWith('ip_') ||
+          lowerPort.startsWith('tcp_') ||
+          /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(lowerPort) ||
+          lowerPort.startsWith('http://') ||
+          lowerPort.startsWith('https://') ||
+          lowerPort.startsWith('ipp://') ||
+          lowerPort.startsWith('bth');
+
+        return !isPhysicalPort;
       };
 
-      const systemDefaultObj = rawList.find((p) => p.Default === true);
+      const systemDefaultObj = rawPrinters.find((p) => p.Default === true);
       const defaultName = systemDefaultObj ? systemDefaultObj.Name : '';
 
-      const enriched = rawList.map((p) => {
+      const enriched = rawPrinters.map((p) => {
         const isVirtual = isVirtualPrinter(p.Name, p.PortName, p.DriverName);
-        const isOffline = Boolean(
+        const lowerPort = String(p.PortName || '').toLowerCase();
+
+        // Check if Windows marks it offline
+        const isMarkedOffline = Boolean(
           p.WorkOffline === true ||
           p.PrinterStatus === 7 ||
           p.ExtendedPrinterStatus === 7 ||
           (p.DetectedErrorState && p.DetectedErrorState !== 0)
         );
+
+        // For USB printers, also require that an active USB printer hardware device is plugged in!
+        let hasHardwareConnection = true;
+        if (!isVirtual && lowerPort.startsWith('usb')) {
+          hasHardwareConnection = activeUsbPrinters.length > 0;
+        }
+
+        const isOnline = !isVirtual && !isMarkedOffline && hasHardwareConnection;
 
         return {
           name: p.Name,
@@ -301,7 +325,7 @@ async function getDetailedSystemPrinters() {
           driverName: p.DriverName,
           isPhysical: !isVirtual,
           isVirtual: isVirtual,
-          isOnline: isVirtual ? true : !isOffline,
+          isOnline: isOnline,
           workOffline: Boolean(p.WorkOffline),
           isDefault: Boolean(p.Default)
         };
