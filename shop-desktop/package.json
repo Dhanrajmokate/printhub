@@ -39,13 +39,15 @@
       "main.js",
       "preload.js",
       "client-dist/**/*",
+      "!client-dist/downloads/**/*",
       "public/**/*",
       "node_modules/**/*"
     ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/pdf-to-printer/**/*",
-      "client-dist/**/*"
+      "client-dist/**/*",
+      "!client-dist/downloads/**/*"
     ]
   },
   "keywords": [],
