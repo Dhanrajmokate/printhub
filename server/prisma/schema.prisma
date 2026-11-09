@@ -53,6 +53,8 @@ model Shop {
   name            String
   address         String
   phone           String
+  latitude        Float?    @default(19.8762)
+  longitude       Float?    @default(75.3433)
   upiId           String    @default("apexprint@upi")
   upiName         String?   @default("Apex QuickPrint Hub")
   qrImageUrl      String?   // Custom uploaded PhonePe / UPI QR image

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { api } from '../services/api.js';
 import { User } from '../types/index.js';
 import { sseClient } from '../services/sse.js';
+import { DEMO_CUSTOMER_USER, DEMO_SHOP_USER, isDemoSession } from '../services/demoData.js';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; requiresOtp?: boolean; debugOtp?: string; message?: string }>;
+  loginAsDemo: (role: 'CUSTOMER' | 'SHOP') => { success: boolean };
   register: (data: {
     email: string;
     password: string;
@@ -65,12 +67,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(JSON.parse(savedUser));
           sseClient.connect();
 
-          // Validate token with server in background to avoid silent stale sessions
-          api.get('/auth/me').catch((err) => {
-            if (err.response?.status === 401) {
-              handleUnauthorized();
-            }
-          });
+          // Validate token with server in background to avoid silent stale sessions (skip if demo)
+          if (!savedToken.startsWith('demo-')) {
+            api.get('/auth/me').catch((err) => {
+              if (err.response?.status === 401) {
+                handleUnauthorized();
+              }
+            });
+          }
         } catch (err) {
           sessionStorage.removeItem('printhub_token');
           sessionStorage.removeItem('printhub_user');
@@ -104,10 +108,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const loginAsDemo = useCallback((role: 'CUSTOMER' | 'SHOP') => {
+    const demoUser = role === 'SHOP' ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER;
+    const demoToken = role === 'SHOP' ? 'demo-jwt-token-shop' : 'demo-jwt-token-customer';
+
+    setToken(demoToken);
+    setUser(demoUser);
+    sessionStorage.setItem('printhub_token', demoToken);
+    sessionStorage.setItem('printhub_user', JSON.stringify(demoUser));
+    localStorage.setItem('printhub_token', demoToken);
+    localStorage.setItem('printhub_user', JSON.stringify(demoUser));
+
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
+      (window as any).electronAPI.getConfig().then((cfg: any) => {
+        (window as any).electronAPI.saveConfig({ ...cfg, shopToken: demoToken, shopUser: demoUser });
+      }).catch(() => {});
+    }
+
+    return { success: true };
+  }, []);
+
   const login = async (email: string, password: string) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const isDemoCustomer = cleanEmail === 'customer@printhub.com' && password === 'password123';
+    const isDemoShop = cleanEmail === 'shop@printhub.com' && password === 'password123';
+
+    // Demo accounts log in immediately without network vulnerability
+    if (isDemoCustomer) {
+      return loginAsDemo('CUSTOMER');
+    }
+    if (isDemoShop) {
+      return loginAsDemo('SHOP');
+    }
+
     try {
-      const res = await api.post('/auth/login', { email, password });
-      if (res.data.success) {
+      const res = await api.post('/auth/login', { email: cleanEmail, password });
+      if (res.data?.success) {
         const { token: receivedToken, user: receivedUser } = res.data;
         setToken(receivedToken);
         setUser(receivedUser);
@@ -123,9 +159,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sseClient.connect();
         return { success: true };
       }
-      return { success: false, message: res.data.message };
+      return { success: false, message: res.data?.message || 'Login failed.' };
     } catch (error: any) {
       const resp = error.response?.data;
+      const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error');
+
       if (resp?.requiresOtp) {
         return {
           success: false,
@@ -134,9 +172,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           message: resp.message
         };
       }
+
+      if (isNetworkError) {
+        const serverUrl = (typeof window !== 'undefined' && localStorage.getItem('printhub_server_url')) || 'backend server';
+        return {
+          success: false,
+          message: `Unable to connect to ${serverUrl}. Please check your connection or tap Quick Demo to test offline.`
+        };
+      }
+
       return {
         success: false,
-        message: resp?.message || 'Login failed. Please check your credentials.'
+        message: resp?.message || 'Invalid email or password. Please try again.'
       };
     }
   };
@@ -216,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        loginAsDemo,
         register,
         verifyOtp,
         logout,

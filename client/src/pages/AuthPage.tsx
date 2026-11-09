@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Printer, Mail, Lock, User as UserIcon, Phone, Store, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Printer, Mail, Lock, User as UserIcon, Phone, Store, ArrowRight, ShieldCheck, Zap, Settings, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { OtpModal } from '../components/common/OtpModal.js';
 import { useToast } from '../context/ToastContext.js';
+import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
 
 export const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
@@ -23,8 +24,15 @@ export const AuthPage: React.FC = () => {
   const [debugOtp, setDebugOtp] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [currentServerUrl, setCurrentServerUrl] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('printhub_server_url') || 'http://10.105.106.56:8000';
+    }
+    return 'http://10.105.106.56:8000';
+  });
 
-  const { login, register } = useAuth();
+  const { login, loginAsDemo, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
@@ -93,13 +101,23 @@ export const AuthPage: React.FC = () => {
   const fillDemoCustomer = () => {
     setEmail('customer@printhub.com');
     setPassword('password123');
+    setRole('CUSTOMER');
     setMode('LOGIN');
+    setErrorMessage('');
+    loginAsDemo('CUSTOMER');
+    showToast('success', 'Demo Customer Active', 'Logged in as Demo Student Customer (₹100 Wallet Credit).');
+    navigate('/dashboard');
   };
 
   const fillDemoShop = () => {
     setEmail('shop@printhub.com');
     setPassword('password123');
+    setRole('SHOP');
     setMode('LOGIN');
+    setErrorMessage('');
+    loginAsDemo('SHOP');
+    showToast('success', 'Demo Shop Active', 'Logged in as Demo Print Shopkeeper (Campus Central).');
+    navigate('/shop');
   };
 
   return (
@@ -162,7 +180,8 @@ export const AuthPage: React.FC = () => {
               <button
                 type="button"
                 onClick={fillDemoCustomer}
-                className="py-2 px-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                disabled={isSubmitting}
+                className="py-2 px-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Zap className="w-3 h-3 text-emerald-600" />
                 <span>Customer (₹100)</span>
@@ -170,7 +189,8 @@ export const AuthPage: React.FC = () => {
               <button
                 type="button"
                 onClick={fillDemoShop}
-                className="py-2 px-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                disabled={isSubmitting}
+                className="py-2 px-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 disabled:opacity-50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Store className="w-3 h-3 text-purple-600" />
                 <span>Shop (3001/3002)</span>
@@ -178,6 +198,24 @@ export const AuthPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Backend Connection Indicator & Server Settings */}
+        <div className="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 truncate">
+            <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+            <span className="truncate">
+              Server: <strong className="font-mono text-slate-800 dark:text-slate-200">{currentServerUrl.replace(/^https?:\/\//, '')}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsServerModalOpen(true)}
+            className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-semibold shrink-0 ml-2"
+          >
+            <Settings className="w-3 h-3" />
+            <span>Config</span>
+          </button>
+        </div>
 
         {/* Role Selector during Registration */}
         {mode === 'REGISTER' && (
@@ -358,6 +396,17 @@ export const AuthPage: React.FC = () => {
         debugOtp={debugOtp}
         onSuccess={handleOtpSuccess}
         onCancel={() => setIsOtpOpen(false)}
+      />
+
+      {/* Server Configuration Modal */}
+      <ServerConfigModal
+        isOpen={isServerModalOpen}
+        onClose={() => setIsServerModalOpen(false)}
+        currentUrl={currentServerUrl}
+        onUrlUpdated={(newUrl) => {
+          setCurrentServerUrl(newUrl);
+          showToast('success', 'Server Updated', `Active API URL set to ${newUrl}`);
+        }}
       />
     </div>
   );

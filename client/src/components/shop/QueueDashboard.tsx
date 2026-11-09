@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Printer, CheckCircle2, User, Phone, Clock, FileText, AlertCircle, RefreshCw, Sparkles, Check, Camera, ExternalLink, X, Trash2 } from 'lucide-react';
+import { Play, Printer, CheckCircle2, User, Phone, Clock, FileText, AlertCircle, RefreshCw, Sparkles, Check, Camera, ExternalLink, X, Trash2, Zap } from 'lucide-react';
 import { Order, OrderItem } from '../../types/index.js';
 import { api, getApiBaseUrl } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -12,6 +12,8 @@ export const QueueDashboard: React.FC = () => {
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [printingItemId, setPrintingItemId] = useState<string | null>(null);
+  const [bulkPrintingOrderId, setBulkPrintingOrderId] = useState<string | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [tab, setTab] = useState<'QUEUE' | 'HISTORY'>('QUEUE');
   const [viewingScreenshot, setViewingScreenshot] = useState<{
     url: string;
@@ -202,6 +204,53 @@ export const QueueDashboard: React.FC = () => {
       fetchQueue();
     } finally {
       setPrintingItemId(null);
+    }
+  };
+
+  const handleBulkPrintOrder = async (order: Order) => {
+    // 1. Strict physical hardware offline check for Desktop App
+    if (isElectron && window.electronAPI?.getSystemPrinters) {
+      try {
+        const printerRes = await window.electronAPI.getSystemPrinters();
+        if (!printerRes?.hasPhysicalPrinter) {
+          showToast('error', 'Printer Offline', 'No physical printer is currently connected. Please plug in your USB or Wi-Fi printer and turn it on to print.');
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Printer check error:', checkErr);
+      }
+    }
+
+    const pendingItems = order.items.filter((i) => i.status !== 'PRINTED');
+    if (pendingItems.length === 0) {
+      showToast('info', 'All Printed', 'All documents in this order are already printed.');
+      return;
+    }
+
+    setBulkPrintingOrderId(order.id);
+    let successCount = 0;
+
+    try {
+      for (let idx = 0; idx < pendingItems.length; idx++) {
+        const item = pendingItems[idx];
+        setBulkProgress({ current: idx + 1, total: pendingItems.length });
+        try {
+          await handleManualPrint(order.id, item.id, item.originalFileName);
+          successCount++;
+        } catch (itemErr: any) {
+          console.error(`Failed to print item ${item.originalFileName}:`, itemErr);
+          showToast('error', 'Print Interrupted', `Stopped at ${item.originalFileName}`);
+          break;
+        }
+      }
+
+      if (successCount === pendingItems.length) {
+        showToast('success', 'Order Spooled', `All ${successCount} documents in Order #${order.orderNumber} successfully spooled to printer!`);
+      }
+    } finally {
+      setBulkPrintingOrderId(null);
+      setBulkProgress(null);
+      fetchQueue();
     }
   };
 
@@ -433,6 +482,59 @@ export const QueueDashboard: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* 1-Click Bulk Print Action Bar */}
+                  {order.items && order.items.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-indigo-50/90 via-purple-50/40 to-indigo-50/90 dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-indigo-950/40 px-4 py-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                          <Zap className="w-4 h-4 fill-current" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>Order Documents: {order.items.length} {order.items.length === 1 ? 'file' : 'files'}</span>
+                            {allItemsPrinted ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">(All Printed ✓)</span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
+                                ({order.items.filter((i) => i.status !== 'PRINTED').length} pending)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {allItemsPrinted
+                              ? 'All document items in this order have been spooled to the printer.'
+                              : 'Print all files in this customer order sequentially with 1 click.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!allItemsPrinted ? (
+                        <button
+                          type="button"
+                          disabled={bulkPrintingOrderId === order.id || !!printingItemId}
+                          onClick={() => handleBulkPrintOrder(order)}
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                        >
+                          {bulkPrintingOrderId === order.id ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Printing {bulkProgress ? `${bulkProgress.current} of ${bulkProgress.total}` : '...' }</span>
+                            </>
+                          ) : (
+                            <>
+                              <Printer className="w-4 h-4" />
+                              <span>⚡ Print Entire Order ({order.items.filter((i) => i.status !== 'PRINTED').length} {order.items.filter((i) => i.status !== 'PRINTED').length === 1 ? 'File' : 'Files'})</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800/60">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> All Spooled
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Per-Item List with Manual Print Buttons */}
                   <div className="space-y-2.5">

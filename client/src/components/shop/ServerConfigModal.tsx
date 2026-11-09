@@ -203,6 +203,22 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
                   <div className="text-[10px] text-slate-500 mt-0.5">Any PC worldwide via internet</div>
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setServerUrl('http://10.105.106.56:8000');
+                  setTestResult(null);
+                }}
+                className="p-3 rounded-2xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 text-left flex items-start gap-2.5 transition-all col-span-1 sm:col-span-2"
+              >
+                <Wifi className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold text-white">Mobile APK Wi-Fi LAN (Host PC)</div>
+                  <div className="text-[11px] text-amber-400/90 font-mono">http://10.105.106.56:8000</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Connect phone APK to host PC backend on local Wi-Fi</div>
+                </div>
+              </button>
             </div>
           </div>
 

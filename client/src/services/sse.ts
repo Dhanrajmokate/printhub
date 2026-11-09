@@ -12,7 +12,7 @@ class SSEClient {
       ? (sessionStorage.getItem('printhub_token') || localStorage.getItem('printhub_token'))
       : null);
 
-    if (!token) {
+    if (!token || token.startsWith('demo-')) {
       this.disconnect();
       return;
     }

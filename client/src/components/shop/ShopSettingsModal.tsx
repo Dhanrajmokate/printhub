@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2, Building2, CreditCard, ShieldCheck } from 'lucide-react';
+import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2, Building2, CreditCard, ShieldCheck, Navigation } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -21,6 +21,8 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
   const [name, setName] = useState(shop?.name || '');
   const [address, setAddress] = useState(shop?.address || '');
   const [phone, setPhone] = useState(shop?.phone || '');
+  const [latitude, setLatitude] = useState((shop?.latitude ?? 19.8762).toString());
+  const [longitude, setLongitude] = useState((shop?.longitude ?? 75.3433).toString());
   const [upiId, setUpiId] = useState(shop?.upiId || 'apexprint@upi');
   const [upiName, setUpiName] = useState(shop?.upiName || shop?.name || '');
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(shop?.qrImageUrl || null);
@@ -49,6 +51,8 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
       setName(shop.name || '');
       setAddress(shop.address || '');
       setPhone(shop.phone || '');
+      setLatitude((shop.latitude ?? 19.8762).toString());
+      setLongitude((shop.longitude ?? 75.3433).toString());
       setUpiId(shop.upiId || 'apexprint@upi');
       setUpiName(shop.upiName || shop.name || '');
       setQrImageUrl(shop.qrImageUrl || null);
@@ -91,6 +95,24 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
     }
   };
 
+  const handleDetectShopGps = () => {
+    if (!navigator.geolocation) {
+      showToast('error', 'GPS Error', 'Geolocation is not supported by your browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(6));
+        setLongitude(pos.coords.longitude.toFixed(6));
+        showToast('success', 'Shop GPS Detected', `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`);
+      },
+      (err) => {
+        showToast('error', 'Location Error', err.message || 'Could not detect GPS coordinates.');
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -100,6 +122,8 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
         name,
         address,
         phone,
+        latitude: parseFloat(latitude) || 19.8762,
+        longitude: parseFloat(longitude) || 75.3433,
         upiId: upiId.trim(),
         upiName: upiName.trim(),
         qrImageUrl,
@@ -192,6 +216,47 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Shop GPS Coordinates for Map Discovery */}
+          <div className="p-4 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                <Navigation className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Shop GPS Coordinates (Map Discovery)</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleDetectShopGps}
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                <span>📍 Auto-Detect Location</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-indigo-600 focus:outline-none"
+                  placeholder="e.g. 19.8762"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-indigo-600 focus:outline-none"
+                  placeholder="e.g. 75.3433"
+                />
+              </div>
             </div>
           </div>
 

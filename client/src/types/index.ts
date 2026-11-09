@@ -48,6 +48,8 @@ export interface Shop {
   name: string;
   address: string;
   phone: string;
+  latitude?: number;
+  longitude?: number;
   upiId?: string;
   upiName?: string;
   qrImageUrl?: string | null;
