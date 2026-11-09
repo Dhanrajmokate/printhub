@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UploadCloud, Sliders, Store, ShoppingBag, ArrowRight, Sparkles, CheckCircle2, ShieldCheck, FileText } from 'lucide-react';
+import { UploadCloud, Sliders, Store, ShoppingBag, ArrowRight, Sparkles, CheckCircle2, ShieldCheck, FileText, Printer, MapPin, Compass } from 'lucide-react';
 import { UploadedFileMeta, PrintSettings, Shop, Order } from '../types/index.js';
 import { FileUploader } from '../components/customer/FileUploader.js';
 import { PrintSettingsModal } from '../components/customer/PrintSettingsModal.js';
 import { ShopSelector } from '../components/customer/ShopSelector.js';
+import { CampusMapDiscovery } from '../components/customer/CampusMapDiscovery.js';
 import { CartDrawer } from '../components/customer/CartDrawer.js';
 import { PaymentModal } from '../components/customer/PaymentModal.js';
 import { OrderTracker } from '../components/customer/OrderTracker.js';
@@ -18,6 +19,9 @@ export const CustomerDashboard: React.FC = () => {
   const { selectedShop, setSelectedShop, addItem, items, subtotal } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  // Navigation tab: 'ORDER' (print order flow) or 'MAP' (campus discovery)
+  const [activeTab, setActiveTab] = useState<'ORDER' | 'MAP'>('ORDER');
 
   // Staged Uploaded Files
   const [stagedFiles, setStagedFiles] = useState<{ meta: UploadedFileMeta; settings: PrintSettings }[]>([]);
@@ -126,70 +130,110 @@ export const CustomerDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Step 1: Upload Documents */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                  1
-                </span>
-                <span>Upload Documents to Print</span>
-              </h2>
-              <span className="text-xs text-slate-400">PDF, Word, or Images</span>
-            </div>
+          {/* Main Dashboard View Switcher */}
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setActiveTab('ORDER')}
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeTab === 'ORDER'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800'
+              }`}
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Order</span>
+            </button>
 
-            <FileUploader
-              files={stagedFiles}
-              onFilesChange={setStagedFiles}
-              onOpenSettings={(idx) => setActiveSettingsIdx(idx)}
-              onApplyToAll={handleApplyToAll}
-              defaultSettings={defaultPrintSettings}
-            />
-          </section>
+            <button
+              type="button"
+              onClick={() => setActiveTab('MAP')}
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeTab === 'MAP'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800'
+              }`}
+            >
+              <MapPin className="w-4 h-4 text-emerald-500" />
+              <span>Campus Shops Map</span>
+            </button>
+          </div>
 
-          {/* Step 2: Select Print Shop */}
-          <section className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                  2
-                </span>
-                <span>Choose Pickup Print Shop</span>
-              </h2>
-            </div>
-
-            <ShopSelector
+          {activeTab === 'MAP' ? (
+            <CampusMapDiscovery
               selectedShop={selectedShop}
               onSelectShop={setSelectedShop}
+              onProceedToOrder={() => setActiveTab('ORDER')}
             />
-          </section>
+          ) : (
+            <>
+              {/* Step 1: Upload Documents */}
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                      1
+                    </span>
+                    <span>Upload Documents to Print</span>
+                  </h2>
+                  <span className="text-xs text-slate-400">PDF, Word, or Images</span>
+                </div>
 
-          {/* Step 3: Add to Cart Action Bar */}
-          {stagedFiles.length > 0 && (
-            <div className="sticky bottom-6 z-30 p-4 sm:p-5 rounded-3xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-4">
-              <div>
-                <p className="font-extrabold text-sm sm:text-base">
-                  {stagedFiles.length} file(s) configured for {selectedShop?.name || 'Selected Shop'}
-                </p>
-                <p className="text-xs text-slate-400 dark:text-slate-600">
-                  Total pages to print:{' '}
-                  <strong className="font-mono text-white dark:text-slate-900">
-                    {stagedFiles.reduce((sum, f) => sum + f.meta.pageCount * f.settings.copies, 0)}
-                  </strong>
-                </p>
-              </div>
+                <FileUploader
+                  files={stagedFiles}
+                  onFilesChange={setStagedFiles}
+                  onOpenSettings={(idx) => setActiveSettingsIdx(idx)}
+                  onApplyToAll={handleApplyToAll}
+                  defaultSettings={defaultPrintSettings}
+                />
+              </section>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleAddAllToCart}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Add All to Cart & Review</span>
-                </button>
-              </div>
-            </div>
+              {/* Step 2: Select Print Shop */}
+              <section className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                      2
+                    </span>
+                    <span>Choose Pickup Print Shop</span>
+                  </h2>
+                </div>
+
+                <ShopSelector
+                  selectedShop={selectedShop}
+                  onSelectShop={setSelectedShop}
+                  onOpenMap={() => setActiveTab('MAP')}
+                />
+              </section>
+
+              {/* Step 3: Add to Cart Action Bar */}
+              {stagedFiles.length > 0 && (
+                <div className="sticky bottom-6 z-30 p-4 sm:p-5 rounded-3xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-4">
+                  <div>
+                    <p className="font-extrabold text-sm sm:text-base">
+                      {stagedFiles.length} file(s) configured for {selectedShop?.name || 'Selected Shop'}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-600">
+                      Total pages to print:{' '}
+                      <strong className="font-mono text-white dark:text-slate-900">
+                        {stagedFiles.reduce((sum, f) => sum + f.meta.pageCount * f.settings.copies, 0)}
+                      </strong>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddAllToCart}
+                      className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Add All to Cart & Review</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

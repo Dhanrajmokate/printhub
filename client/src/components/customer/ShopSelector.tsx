@@ -18,14 +18,15 @@ import { ShopMapView } from './ShopMapView.js';
 interface ShopSelectorProps {
   selectedShop: Shop | null;
   onSelectShop: (shop: Shop) => void;
+  onOpenMap?: () => void;
 }
 
-export const ShopSelector: React.FC<ShopSelectorProps> = ({ selectedShop, onSelectShop }) => {
+export const ShopSelector: React.FC<ShopSelectorProps> = ({ selectedShop, onSelectShop, onOpenMap }) => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Map & Discovery State
-  const [viewMode, setViewMode] = useState<'MAP' | 'GRID'>('MAP');
+  // Map & Discovery State (defaults to clean GRID list)
+  const [viewMode, setViewMode] = useState<'MAP' | 'GRID'>('GRID');
   const [radiusKm, setRadiusKm] = useState<number | 'ALL'>(2); // Default 2 km
   const [userCoords, setUserCoords] = useState<Coordinates | null>(DEFAULT_USER_LOCATION);
   const [selectedLandmarkId, setSelectedLandmarkId] = useState<string>('mit-main');
@@ -182,7 +183,13 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({ selectedShop, onSele
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
             <button
               type="button"
-              onClick={() => setViewMode('MAP')}
+              onClick={() => {
+                if (onOpenMap) {
+                  onOpenMap();
+                } else {
+                  setViewMode('MAP');
+                }
+              }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
                 viewMode === 'MAP'
                   ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
@@ -190,7 +197,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({ selectedShop, onSele
               }`}
             >
               <Map className="w-3.5 h-3.5" />
-              <span>Map</span>
+              <span>Open Map</span>
             </button>
             <button
               type="button"
