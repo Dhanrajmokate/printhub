@@ -92,29 +92,25 @@ export const CustomerDashboard: React.FC = () => {
         />
       ) : (
         <>
-          {/* Welcome Banner */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-700 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-xl">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold backdrop-blur-sm">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>PrintHub Instant Print Service</span>
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-                Hello, {user?.name || 'Customer'}! 👋
+          {/* Clean Welcome Banner */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-700 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                <span>Welcome back, {user?.name?.split(' ')[0] || 'Customer'}! 👋</span>
               </h1>
-              <p className="text-xs sm:text-sm text-indigo-100 leading-relaxed">
-                Upload your documents, choose paper size & color mode, pick a local verified shop, and collect in minutes.
+              <p className="text-xs sm:text-sm text-indigo-100">
+                Upload your document, choose your nearest campus shop, and pickup in minutes.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setIsWalletOpen(true)}
-                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors backdrop-blur-sm flex items-center gap-2"
+                className="px-3.5 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors backdrop-blur-sm flex items-center gap-2"
               >
-                <span>Wallet Balance:</span>
-                <span className="font-mono text-sm text-emerald-300 font-extrabold">
+                <span>Wallet:</span>
+                <span className="font-mono text-emerald-300 font-extrabold">
                   ₹{user?.wallet?.balance?.toFixed(2) || '0.00'}
                 </span>
               </button>
@@ -122,9 +118,9 @@ export const CustomerDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/orders')}
-                className="px-5 py-3 rounded-2xl bg-white text-indigo-900 hover:bg-indigo-50 text-xs font-bold shadow-md transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 rounded-2xl bg-white text-indigo-900 hover:bg-indigo-50 text-xs font-bold shadow-md transition-colors flex items-center gap-1.5"
               >
-                <span>Order History</span>
+                <span>My Orders</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -133,15 +129,13 @@ export const CustomerDashboard: React.FC = () => {
           {/* Step 1: Upload Documents */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
                   1
                 </span>
-                <span>Upload Documents</span>
+                <span>Upload Documents to Print</span>
               </h2>
-              <span className="text-xs text-slate-400 dark:text-slate-500">
-                Auto page-count detector
-              </span>
+              <span className="text-xs text-slate-400">PDF, Word, or Images</span>
             </div>
 
             <FileUploader
@@ -154,13 +148,13 @@ export const CustomerDashboard: React.FC = () => {
           </section>
 
           {/* Step 2: Select Print Shop */}
-          <section className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <section className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-6 h-6 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
                   2
                 </span>
-                <span>Choose Pickup Location</span>
+                <span>Choose Pickup Print Shop</span>
               </h2>
             </div>
 

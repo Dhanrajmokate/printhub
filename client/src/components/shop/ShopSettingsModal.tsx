@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2, Building2, CreditCard, ShieldCheck, Navigation } from 'lucide-react';
+import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, Image as ImageIcon, CheckCircle, Trash2, Building2, CreditCard, ShieldCheck, Navigation, Loader2, Compass, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
+import { CAMPUS_LANDMARKS } from '../../utils/geo.js';
 
 interface ShopSettingsModalProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
 
   const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
@@ -97,20 +99,56 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
 
   const handleDetectShopGps = () => {
     if (!navigator.geolocation) {
-      showToast('error', 'GPS Error', 'Geolocation is not supported by your browser.');
+      showToast('error', 'GPS Error', 'Geolocation is not supported by your browser or device.');
       return;
     }
+
+    setIsDetectingGps(true);
+    showToast('info', 'Detecting GPS Location', 'Contacting device GPS antenna...');
+
+    const onGpsSuccess = (pos: GeolocationPosition) => {
+      const latStr = pos.coords.latitude.toFixed(6);
+      const lngStr = pos.coords.longitude.toFixed(6);
+      setLatitude(latStr);
+      setLongitude(lngStr);
+      setIsDetectingGps(false);
+      showToast('success', 'Shop GPS Detected!', `Lat: ${latStr}, Lng: ${lngStr} (~${Math.round(pos.coords.accuracy || 10)}m accuracy)`);
+    };
+
+    const onGpsError = (err: GeolocationPositionError) => {
+      // If high-accuracy times out, fallback to low-accuracy/network
+      if (err.code === 3) {
+        navigator.geolocation.getCurrentPosition(
+          onGpsSuccess,
+          () => {
+            setIsDetectingGps(false);
+            showToast('error', 'GPS Signal Weak', 'Could not lock GPS. You can select a campus landmark or enter coordinates manually.');
+          },
+          { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 }
+        );
+        return;
+      }
+
+      setIsDetectingGps(false);
+      showToast('error', 'Location Access Denied', err.message || 'Please allow Location permissions in your device/browser settings.');
+    };
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(pos.coords.latitude.toFixed(6));
-        setLongitude(pos.coords.longitude.toFixed(6));
-        showToast('success', 'Shop GPS Detected', `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`);
-      },
-      (err) => {
-        showToast('error', 'Location Error', err.message || 'Could not detect GPS coordinates.');
-      },
-      { timeout: 8000, enableHighAccuracy: true }
+      onGpsSuccess,
+      onGpsError,
+      { timeout: 12000, enableHighAccuracy: true, maximumAge: 10000 }
     );
+  };
+
+  const handleSelectPresetLandmark = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (!val) return;
+    const lm = CAMPUS_LANDMARKS.find((item) => item.id === val);
+    if (lm) {
+      setLatitude(lm.coords.lat.toFixed(6));
+      setLongitude(lm.coords.lng.toFixed(6));
+      showToast('success', 'Campus Landmark Set', `Set to ${lm.name}`);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,26 +258,91 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
           </div>
 
           {/* Shop GPS Coordinates for Map Discovery */}
-          <div className="p-4 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                <Navigation className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Shop GPS Coordinates (Map Discovery)</span>
-              </span>
-              <button
-                type="button"
-                onClick={handleDetectShopGps}
-                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-              >
-                <span>📍 Auto-Detect Location</span>
-              </button>
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-50/90 to-blue-50/50 dark:from-indigo-950/60 dark:to-slate-900/80 border-2 border-indigo-200 dark:border-indigo-800 space-y-3.5 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Navigation className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Shop Geolocation (Map Discovery)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      Live
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Pins your shop on the customer map and calculates real student walking times
+                  </p>
+                </div>
+              </div>
+
+              {latitude && longitude && (
+                <a
+                  href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                >
+                  <span>Preview</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3 text-xs">
+
+            {/* 1-Click Auto-Detect Location Button */}
+            <button
+              type="button"
+              onClick={handleDetectShopGps}
+              disabled={isDetectingGps}
+              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${
+                isDetectingGps
+                  ? 'bg-indigo-200 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 cursor-wait'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-[0.99]'
+              }`}
+            >
+              {isDetectingGps ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                  <span>Locking Device GPS Fix... Please wait</span>
+                </>
+              ) : (
+                <>
+                  <Compass className="w-4 h-4" />
+                  <span>📍 Auto-Detect My Shop Location (1-Click GPS)</span>
+                </>
+              )}
+            </button>
+
+            {/* Campus Landmark Preset Dropdown */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
+                Or Quick-Pick a Campus Landmark:
+              </label>
+              <select
+                onChange={handleSelectPresetLandmark}
+                defaultValue=""
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-indigo-600 focus:outline-none cursor-pointer"
+              >
+                <option value="" disabled>-- Select Campus Building / Landmark --</option>
+                {CAMPUS_LANDMARKS.map((lm) => (
+                  <option key={lm.id} value={lm.id}>
+                    {lm.name} ({lm.coords.lat}, {lm.coords.lng})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Manual Lat/Lng Fields */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Latitude</label>
+                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  Latitude
+                </label>
                 <input
                   type="number"
                   step="any"
+                  required
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-indigo-600 focus:outline-none"
@@ -247,10 +350,13 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Longitude</label>
+                <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  Longitude
+                </label>
                 <input
                   type="number"
                   step="any"
+                  required
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-xs focus:border-indigo-600 focus:outline-none"

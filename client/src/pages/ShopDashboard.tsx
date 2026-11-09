@@ -238,7 +238,7 @@ export const ShopDashboard: React.FC = () => {
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Live FIFO Print Queue</span>
+          <span>Orders Queue</span>
         </button>
 
         <button
@@ -251,7 +251,7 @@ export const ShopDashboard: React.FC = () => {
           }`}
         >
           <Printer className="w-4 h-4" />
-          <span>Printer Fleet & Port Routing</span>
+          <span>Printers</span>
         </button>
 
         <button
@@ -264,7 +264,7 @@ export const ShopDashboard: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-4 h-4" />
-          <span>Revenue & Job Analytics</span>
+          <span>Analytics</span>
         </button>
 
         <button
@@ -277,7 +277,7 @@ export const ShopDashboard: React.FC = () => {
           }`}
         >
           <Wallet className="w-4 h-4" />
-          <span>Earnings & UPI Withdrawals</span>
+          <span>Wallet & Payouts</span>
         </button>
       </div>
 
