@@ -29,6 +29,9 @@ export const QueueDashboard: React.FC = () => {
   const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
   const autoPrintingItemsRef = React.useRef<Set<string>>(new Set());
 
+  const [isBulkQueuePrinting, setIsBulkQueuePrinting] = useState(false);
+  const [bulkQueueProgress, setBulkQueueProgress] = useState<{ current: number; total: number; orderNumber: string } | null>(null);
+
   // Web Audio chime for incoming orders
   const playOrderChime = () => {
     try {
@@ -74,7 +77,7 @@ export const QueueDashboard: React.FC = () => {
               if (item.status === 'PENDING' && !autoPrintingItemsRef.current.has(item.id)) {
                 autoPrintingItemsRef.current.add(item.id);
                 console.log(`[Auto-Print] Auto-dispatching job: ${item.originalFileName}`);
-                handleManualPrint(order.id, item.id, item.originalFileName);
+                handleManualPrint(order.id, item.id, item.originalFileName, order, item);
               }
             }
           }
@@ -143,14 +146,20 @@ export const QueueDashboard: React.FC = () => {
     };
   }, [isElectron]);
 
-  const handleManualPrint = async (orderId: string, itemId: string, itemTitle: string) => {
+  const handleManualPrint = async (
+    orderId: string,
+    itemId: string,
+    itemTitle: string,
+    targetOrder?: Order,
+    targetItem?: OrderItem
+  ): Promise<{ success: boolean; message?: string }> => {
     // 1. Strict physical hardware offline check for Desktop App
     if (isElectron && window.electronAPI?.getSystemPrinters) {
       try {
         const printerRes = await window.electronAPI.getSystemPrinters();
         if (!printerRes?.hasPhysicalPrinter) {
           showToast('error', 'Printer Offline', 'No physical printer is currently connected. Please plug in your USB or Wi-Fi printer and turn it on to print.');
-          return;
+          return { success: false, message: 'Printer offline' };
         }
       } catch (checkErr) {
         console.warn('Printer check error:', checkErr);
@@ -159,8 +168,12 @@ export const QueueDashboard: React.FC = () => {
 
     setPrintingItemId(itemId);
     try {
-      const order = queueOrders.find((o) => o.id === orderId);
-      const item = order?.items.find((i) => i.id === itemId);
+      const order = targetOrder || queueOrders.find((o) => o.id === orderId);
+      const item = targetItem || order?.items.find((i) => i.id === itemId);
+
+      if (!order || !item) {
+        throw new Error('Order or document details could not be found.');
+      }
 
       // 2. If running inside native Electron Desktop App, dispatch directly to physical hardware FIRST!
       if (isElectron && window.electronAPI?.printJob) {
@@ -169,22 +182,22 @@ export const QueueDashboard: React.FC = () => {
           const cfg = await window.electronAPI.getConfig?.().catch(() => null);
           baseServer = (cfg?.backendUrl || localStorage.getItem('printhub_server_url') || 'https://printhub-cloud-api.onrender.com').replace(/\/$/, '');
         }
-        const targetStoredFile = item?.storedFileName;
+        const targetStoredFile = item.storedFileName;
         const targetFileUrl = targetStoredFile
           ? `${baseServer}/uploads/raw/${targetStoredFile}`
           : '';
 
         const printDispatchRes = await window.electronAPI.printJob({
-          orderNumber: order?.orderNumber || 'ORD',
-          originalFileName: itemTitle || item?.originalFileName || 'document.pdf',
+          orderNumber: order.orderNumber || 'ORD',
+          originalFileName: itemTitle || item.originalFileName || 'document.pdf',
           fileUrl: targetFileUrl,
-          copies: item?.copies || 1,
-          colorMode: item?.colorMode || 'BW',
-          duplexMode: item?.duplexMode || 'SINGLE',
-          paperSize: item?.paperSize || 'A4',
-          pageRange: item?.pageRange || 'ALL',
-          scaling: item?.scaling || 'fit',
-          orientation: item?.orientation || 'portrait'
+          copies: item.copies || 1,
+          colorMode: item.colorMode || 'BW',
+          duplexMode: item.duplexMode || 'SINGLE',
+          paperSize: item.paperSize || 'A4',
+          pageRange: item.pageRange || 'ALL',
+          scaling: item.scaling || 'fit',
+          orientation: item.orientation || 'portrait'
         });
 
         if (!printDispatchRes?.success) {
@@ -197,11 +210,14 @@ export const QueueDashboard: React.FC = () => {
 
       if (res.data.success) {
         showToast('success', 'Print Job Completed', `${itemTitle} spooled to ${res.data.result?.printerName || connectedPrinters[0] || 'Physical Printer'}`);
-        fetchQueue();
+        return { success: true };
+      } else {
+        throw new Error(res.data.message || 'Server failed to update item status.');
       }
     } catch (err: any) {
-      showToast('error', 'Print Failed', err.response?.data?.message || err.message || 'Failed to execute print job');
-      fetchQueue();
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to execute print job';
+      showToast('error', 'Print Failed', errorMsg);
+      return { success: false, message: errorMsg };
     } finally {
       setPrintingItemId(null);
     }
@@ -234,13 +250,18 @@ export const QueueDashboard: React.FC = () => {
       for (let idx = 0; idx < pendingItems.length; idx++) {
         const item = pendingItems[idx];
         setBulkProgress({ current: idx + 1, total: pendingItems.length });
-        try {
-          await handleManualPrint(order.id, item.id, item.originalFileName);
-          successCount++;
-        } catch (itemErr: any) {
-          console.error(`Failed to print item ${item.originalFileName}:`, itemErr);
-          showToast('error', 'Print Interrupted', `Stopped at ${item.originalFileName}`);
+        
+        const printRes = await handleManualPrint(order.id, item.id, item.originalFileName, order, item);
+        if (!printRes.success) {
+          console.error(`Failed to print item ${item.originalFileName}:`, printRes.message);
+          showToast('error', 'Print Interrupted', `Stopped at ${item.originalFileName}: ${printRes.message}`);
           break;
+        }
+        successCount++;
+
+        // Add 1.5s settling buffer between sequential jobs to prevent spooler & USB port contention
+        if (idx < pendingItems.length - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
         }
       }
 
@@ -250,6 +271,69 @@ export const QueueDashboard: React.FC = () => {
     } finally {
       setBulkPrintingOrderId(null);
       setBulkProgress(null);
+      fetchQueue();
+    }
+  };
+
+  // Queue-wide bulk print: print all pending items across all waiting orders in FIFO order
+  const handleBulkPrintAllQueue = async () => {
+    if (isBulkQueuePrinting || bulkPrintingOrderId || printingItemId) return;
+
+    if (isElectron && window.electronAPI?.getSystemPrinters) {
+      try {
+        const printerRes = await window.electronAPI.getSystemPrinters();
+        if (!printerRes?.hasPhysicalPrinter) {
+          showToast('error', 'Printer Offline', 'No physical printer is currently connected. Please plug in your USB or Wi-Fi printer and turn it on to print.');
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Printer check error:', checkErr);
+      }
+    }
+
+    const pendingOrders = queueOrders.filter((o) => o.items && o.items.some((i) => i.status !== 'PRINTED'));
+    if (pendingOrders.length === 0) {
+      showToast('info', 'Queue Clear', 'All documents in the queue are already printed.');
+      return;
+    }
+
+    const allPendingJobs: { order: Order; item: OrderItem }[] = [];
+    for (const order of pendingOrders) {
+      for (const item of order.items) {
+        if (item.status !== 'PRINTED') {
+          allPendingJobs.push({ order, item });
+        }
+      }
+    }
+
+    if (allPendingJobs.length === 0) return;
+
+    setIsBulkQueuePrinting(true);
+    let successCount = 0;
+
+    try {
+      for (let idx = 0; idx < allPendingJobs.length; idx++) {
+        const { order, item } = allPendingJobs[idx];
+        setBulkQueueProgress({ current: idx + 1, total: allPendingJobs.length, orderNumber: order.orderNumber });
+
+        const printRes = await handleManualPrint(order.id, item.id, item.originalFileName, order, item);
+        if (!printRes.success) {
+          showToast('error', 'Bulk Queue Print Interrupted', `Stopped at Order #${order.orderNumber} (${item.originalFileName}): ${printRes.message}`);
+          break;
+        }
+        successCount++;
+
+        if (idx < allPendingJobs.length - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
+
+      if (successCount === allPendingJobs.length) {
+        showToast('success', 'Queue Completely Spooled', `Successfully spooled all ${successCount} documents across ${pendingOrders.length} orders to printer!`);
+      }
+    } finally {
+      setIsBulkQueuePrinting(false);
+      setBulkQueueProgress(null);
       fetchQueue();
     }
   };
@@ -395,6 +479,56 @@ export const QueueDashboard: React.FC = () => {
           />
         ) : (
           <div className="space-y-4">
+            {/* Top-Level Queue-Wide Bulk Print Action Bar */}
+            {(() => {
+              const pendingOrders = queueOrders.filter((o) => o.items && o.items.some((i) => i.status !== 'PRINTED'));
+              const totalPendingItems = pendingOrders.reduce((acc, o) => acc + (o.items?.filter((i) => i.status !== 'PRINTED').length || 0), 0);
+
+              if (totalPendingItems === 0) return null;
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-5 rounded-3xl text-white shadow-lg shadow-indigo-500/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+                      <Zap className="w-5 h-5 text-white fill-current" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm flex items-center gap-2">
+                        <span>Bulk Queue Spooler</span>
+                        <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
+                          {totalPendingItems} {totalPendingItems === 1 ? 'file' : 'files'} pending
+                        </span>
+                      </h4>
+                      <p className="text-xs text-white/80">
+                        {isBulkQueuePrinting && bulkQueueProgress
+                          ? `Currently printing document ${bulkQueueProgress.current} of ${bulkQueueProgress.total} (Order #${bulkQueueProgress.orderNumber})...`
+                          : `Spool all ${totalPendingItems} pending documents across ${pendingOrders.length} waiting orders sequentially.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isBulkQueuePrinting || !!bulkPrintingOrderId || !!printingItemId}
+                    onClick={handleBulkPrintAllQueue}
+                    className="px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-indigo-700 font-extrabold text-xs shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isBulkQueuePrinting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Printing Queue ({bulkQueueProgress ? `${bulkQueueProgress.current}/${bulkQueueProgress.total}` : '...'})</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4 h-4" />
+                        <span>⚡ Print All Orders in Queue ({totalPendingItems} Files)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
+
             {queueOrders.map((order, orderIdx) => {
               const allItemsPrinted = order.items.every((i) => i.status === 'PRINTED');
 
@@ -512,7 +646,7 @@ export const QueueDashboard: React.FC = () => {
                       {!allItemsPrinted ? (
                         <button
                           type="button"
-                          disabled={bulkPrintingOrderId === order.id || !!printingItemId}
+                          disabled={bulkPrintingOrderId === order.id || !!printingItemId || isBulkQueuePrinting}
                           onClick={() => handleBulkPrintOrder(order)}
                           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                         >
@@ -630,8 +764,8 @@ export const QueueDashboard: React.FC = () => {
                             ) : (
                               <button
                                 type="button"
-                                disabled={isPrinting}
-                                onClick={() => handleManualPrint(order.id, item.id, item.originalFileName)}
+                                disabled={isPrinting || isBulkQueuePrinting || bulkPrintingOrderId === order.id}
+                                onClick={() => handleManualPrint(order.id, item.id, item.originalFileName, order, item)}
                                 className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all flex items-center gap-1.5 disabled:opacity-50"
                               >
                                 {isPrinting ? (

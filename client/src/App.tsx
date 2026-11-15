@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext.js';
 import { ToastProvider } from './context/ToastContext.js';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
-import { CartProvider } from './context/CartContext.js';
+import { CartProvider, useCart } from './context/CartContext.js';
 
 import { Navbar } from './components/layout/Navbar.js';
 import { Footer } from './components/layout/Footer.js';
@@ -45,14 +45,15 @@ const ProtectedShopRoute: React.FC<{ children: React.ReactElement }> = ({ childr
 };
 
 const MainAppContent: React.FC = () => {
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { isCartOpen, setIsCartOpen, openCart, closeCart } = useCart();
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Navbar
-        onOpenCart={() => setIsCartOpen(true)}
+        onOpenCart={openCart}
         onOpenWallet={() => setIsWalletOpen(true)}
       />
 
@@ -109,9 +110,9 @@ const MainAppContent: React.FC = () => {
       {/* Global Drawers & Modals */}
       <CartDrawer
         isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        onClose={closeCart}
         onProceedToCheckout={() => {
-          setIsCartOpen(false);
+          closeCart();
           setIsPaymentOpen(true);
         }}
       />
@@ -119,7 +120,9 @@ const MainAppContent: React.FC = () => {
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
-        onOrderCreated={() => {}}
+        onOrderCreated={() => {
+          navigate('/orders');
+        }}
       />
 
       <WalletModal

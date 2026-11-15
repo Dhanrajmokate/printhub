@@ -254,7 +254,17 @@ router.get('/customer', requireRole(['CUSTOMER']), async (req: AuthenticatedRequ
       where: whereClause,
       include: {
         shop: {
-          select: { id: true, name: true, address: true, phone: true, upiId: true }
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+            upiId: true,
+            bwSingleRate: true,
+            bwDuplexRate: true,
+            colorSingleRate: true,
+            colorDuplexRate: true
+          }
         },
         items: true
       },
@@ -327,7 +337,17 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
           select: { id: true, name: true, phone: true, email: true }
         },
         shop: {
-          select: { id: true, name: true, address: true, phone: true, upiId: true, bwSingleRate: true, colorSingleRate: true }
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+            upiId: true,
+            bwSingleRate: true,
+            bwDuplexRate: true,
+            colorSingleRate: true,
+            colorDuplexRate: true
+          }
         },
         items: true
       }

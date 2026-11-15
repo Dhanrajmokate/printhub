@@ -6,7 +6,6 @@ import { FileUploader } from '../components/customer/FileUploader.js';
 import { PrintSettingsModal } from '../components/customer/PrintSettingsModal.js';
 import { ShopSelector } from '../components/customer/ShopSelector.js';
 import { CampusMapDiscovery } from '../components/customer/CampusMapDiscovery.js';
-import { CartDrawer } from '../components/customer/CartDrawer.js';
 import { PaymentModal } from '../components/customer/PaymentModal.js';
 import { OrderTracker } from '../components/customer/OrderTracker.js';
 import { WalletModal } from '../components/customer/WalletModal.js';
@@ -16,7 +15,7 @@ import { useAuth } from '../context/AuthContext.js';
 
 export const CustomerDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { selectedShop, setSelectedShop, addItem, items, subtotal } = useCart();
+  const { selectedShop, setSelectedShop, addItem, items, subtotal, openCart } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -28,7 +27,6 @@ export const CustomerDashboard: React.FC = () => {
   const [activeSettingsIdx, setActiveSettingsIdx] = useState<number | null>(null);
 
   // Modals & Drawers
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [activeTrackedOrder, setActiveTrackedOrder] = useState<Order | null>(null);
@@ -80,7 +78,7 @@ export const CustomerDashboard: React.FC = () => {
     if (addedCount > 0) {
       showToast('success', 'Added to Cart', `${addedCount} item(s) added. Live cart total: ₹${subtotal.toFixed(2)}`);
       setStagedFiles([]);
-      setIsCartOpen(true);
+      openCart();
     } else if (duplicateCount > 0) {
       showToast('warning', 'Duplicate Items', 'These files with identical settings are already in your cart.');
     }
@@ -250,15 +248,7 @@ export const CustomerDashboard: React.FC = () => {
         />
       )}
 
-      {/* Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => {
-          setIsCartOpen(false);
-          setIsPaymentOpen(true);
-        }}
-      />
+
 
       {/* Payment Modal */}
       <PaymentModal

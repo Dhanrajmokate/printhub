@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Trash2, Download, ExternalLink, RefreshCw, Ban, CheckCircle2, Clock } from 'lucide-react';
+import { Search, Filter, Trash2, Download, ExternalLink, RefreshCw, Ban, CheckCircle2, Clock, RotateCcw } from 'lucide-react';
 import { Order } from '../../types/index.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -7,6 +7,7 @@ import { generateReceiptPdf } from '../../services/receipt.js';
 import { SkeletonShimmer } from '../common/SkeletonShimmer.js';
 import { EmptyState } from '../common/EmptyState.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useCart } from '../../context/CartContext.js';
 
 interface OrderHistoryProps {
   onSelectOrder: (orderId: string) => void;
@@ -19,6 +20,30 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({ onSelectOrder }) => 
   const [statusFilter, setStatusFilter] = useState('ALL');
   const { showToast } = useToast();
   const { refreshUser } = useAuth();
+  const { reorderOrder, selectedShop, items, clearCart, openCart } = useCart();
+
+  const handleReorder = (order: Order) => {
+    if (!order.items || order.items.length === 0) {
+      showToast('error', 'Reorder Failed', 'No printable items found in this order.');
+      return;
+    }
+
+    if (selectedShop && order.shop && selectedShop.id !== order.shop.id && items.length > 0) {
+      const confirmSwitch = window.confirm(
+        `Your cart already contains ${items.length} item(s) from "${selectedShop.name}". Reordering will replace your cart with items from "${order.shop.name}". Do you want to proceed?`
+      );
+      if (!confirmSwitch) return;
+      clearCart();
+    }
+
+    const res = reorderOrder(order);
+    if (res.success) {
+      showToast('success', 'Order Added to Cart', res.message);
+      openCart();
+    } else {
+      showToast('error', 'Reorder Failed', res.message);
+    }
+  };
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -211,6 +236,16 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({ onSelectOrder }) => 
                     >
                       <span>Track</span>
                       <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleReorder(order)}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
+                      title="Reorder this print job"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reorder</span>
                     </button>
 
                     <button

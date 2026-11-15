@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { CartItem, PrintSettings, Shop, UploadedFileMeta } from '../types/index.js';
+import { CartItem, Order, PrintSettings, Shop, UploadedFileMeta } from '../types/index.js';
 
 interface CartContextType {
   selectedShop: Shop | null;
@@ -12,6 +12,11 @@ interface CartContextType {
   subtotal: number;
   totalItemsCount: number;
   calculatePrice: (fileMeta: UploadedFileMeta, settings: PrintSettings, customShop?: Shop | null) => { unitPrice: number; effectivePages: number; itemPrice: number };
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+  openCart: () => void;
+  closeCart: () => void;
+  reorderOrder: (order: Order) => { success: boolean; message: string; count: number };
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -240,6 +245,71 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return items.reduce((sum, item) => sum + item.settings.copies, 0);
   }, [items]);
 
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const openCart = () => setIsCartOpen(true);
+  const closeCart = () => setIsCartOpen(false);
+
+  const reorderOrder = (order: Order) => {
+    if (!order.items || order.items.length === 0) {
+      return { success: false, message: 'No printable documents found in this order to reorder.', count: 0 };
+    }
+
+    if (order.shop) {
+      setSelectedShop(order.shop as unknown as Shop);
+    }
+
+    const shopToUse = (order.shop as unknown as Shop) || selectedShop;
+    const newItems: CartItem[] = [];
+
+    for (const item of order.items) {
+      const fileMeta: UploadedFileMeta = {
+        originalFileName: item.originalFileName,
+        storedFileName: item.storedFileName,
+        fileSize: item.fileSize || 0,
+        fileType: item.fileType || 'pdf',
+        pageCount: item.pageCount || 1,
+        isExactPageCount: true,
+        previewUrl: `/uploads/raw/${item.storedFileName}`
+      };
+
+      const settings: PrintSettings = {
+        colorMode: item.colorMode === 'COLOR' ? 'COLOR' : 'BW',
+        duplexMode:
+          item.duplexMode === 'DUPLEX'
+            ? 'DUPLEX_LONG'
+            : (item.duplexMode as any) || 'SINGLE',
+        copies: Math.max(1, item.copies || 1),
+        orientation: (item.orientation as any) || 'PORTRAIT',
+        paperSize: (item.paperSize as any) || 'A4',
+        quality: (item.quality as any) || 'NORMAL',
+        pageRange: item.pageRange || 'ALL',
+        pageSubset: (item.pageSubset as any) || 'ALL',
+        scaling: (item.scaling as any) || 'FIT',
+        collate: item.collate !== undefined ? Boolean(item.collate) : true
+      };
+
+      const { unitPrice, effectivePages, itemPrice } = calculatePrice(fileMeta, settings, shopToUse);
+
+      newItems.push({
+        id: `cart_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        fileMeta,
+        settings,
+        calculatedPages: effectivePages,
+        unitPrice,
+        itemPrice
+      });
+    }
+
+    setItems((prev) => [...prev, ...newItems]);
+    setIsCartOpen(true);
+
+    return {
+      success: true,
+      message: `Added ${newItems.length} document(s) from Order #${order.orderNumber} to your cart.`,
+      count: newItems.length
+    };
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -252,7 +322,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCart,
         subtotal,
         totalItemsCount,
-        calculatePrice
+        calculatePrice,
+        isCartOpen,
+        setIsCartOpen,
+        openCart,
+        closeCart,
+        reorderOrder
       }}
     >
       {children}

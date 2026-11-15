@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ShoppingBag, X, Trash2, ArrowRight, FileText, Image as ImageIcon, Sliders } from 'lucide-react';
 import { useCart } from '../../context/CartContext.js';
 import { EmptyState } from '../common/EmptyState.js';
+import { PrintSettingsModal } from './PrintSettingsModal.js';
+import { CartItem } from '../../types/index.js';
 
 interface CartDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onProceedToCheckout: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onProceedToCheckout?: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -14,12 +16,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onClose,
   onProceedToCheckout
 }) => {
-  const { items, removeItem, clearCart, subtotal, selectedShop } = useCart();
+  const {
+    items,
+    removeItem,
+    updateItemSettings,
+    clearCart,
+    subtotal,
+    selectedShop,
+    isCartOpen: ctxIsOpen,
+    closeCart: ctxCloseCart
+  } = useCart();
 
-  if (!isOpen) return null;
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+
+  const effectiveIsOpen = isOpen !== undefined ? isOpen : ctxIsOpen;
+  const handleClose = onClose || ctxCloseCart;
+
+  if (!effectiveIsOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+    <>
+      <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
           {/* Header */}
@@ -48,7 +65,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               )}
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -161,14 +178,60 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       )}
                     </div>
 
-                    {/* Price Breakdown */}
-                    <div className="flex items-center justify-between border-t border-slate-200/50 dark:border-slate-700/40 pt-2 mt-1">
-                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                        ₹{item.unitPrice.toFixed(2)}/page
-                      </span>
-                      <span className="font-bold text-slate-900 dark:text-white font-mono text-sm">
-                        ₹{item.itemPrice.toFixed(2)}
-                      </span>
+                    {/* In-Cart Controls: Edit Configuration & Quick Copies Stepper */}
+                    <div className="flex items-center justify-between border-t border-slate-200/50 dark:border-slate-700/40 pt-2.5 mt-0.5">
+                      <div className="flex items-center gap-2">
+                        {/* Edit Config Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingItem(item)}
+                          className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center gap-1.5 transition-all border border-indigo-200/60 dark:border-indigo-800/60 shadow-sm"
+                          title="Edit print specifications & settings"
+                        >
+                          <Sliders className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span>Edit Config</span>
+                        </button>
+
+                        {/* Quick Copies Stepper */}
+                        <div className="flex items-center bg-slate-200/70 dark:bg-slate-700/60 rounded-xl p-0.5 border border-slate-300/60 dark:border-slate-600/60">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newCopies = Math.max(1, item.settings.copies - 1);
+                              updateItemSettings(item.id, { ...item.settings, copies: newCopies });
+                            }}
+                            disabled={item.settings.copies <= 1}
+                            className="w-5 h-5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-colors"
+                            title="Decrease copies"
+                          >
+                            -
+                          </button>
+                          <span className="px-1.5 text-[11px] font-bold text-slate-800 dark:text-slate-200 font-mono min-w-[18px] text-center">
+                            {item.settings.copies}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newCopies = item.settings.copies + 1;
+                              updateItemSettings(item.id, { ...item.settings, copies: newCopies });
+                            }}
+                            className="w-5 h-5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-slate-100 text-xs font-bold transition-colors"
+                            title="Increase copies"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Price Breakdown */}
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono block">
+                          ₹{item.unitPrice.toFixed(2)}/page
+                        </span>
+                        <span className="font-extrabold text-slate-900 dark:text-white font-mono text-sm">
+                          ₹{item.itemPrice.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -196,18 +259,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={onProceedToCheckout}
-                className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center justify-center gap-2 group"
-              >
-                <span>Proceed to Payment (₹{subtotal.toFixed(2)})</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+              {onProceedToCheckout && (
+                <button
+                  type="button"
+                  onClick={onProceedToCheckout}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <span>Proceed to Payment (₹{subtotal.toFixed(2)})</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
     </div>
+
+    {/* In-Cart Configuration Modal */}
+    {editingItem && (
+      <PrintSettingsModal
+        isOpen={!!editingItem}
+        fileMeta={editingItem.fileMeta}
+        currentSettings={editingItem.settings}
+        shop={selectedShop}
+        onSave={(newSettings) => {
+          updateItemSettings(editingItem.id, newSettings);
+          setEditingItem(null);
+        }}
+        onClose={() => setEditingItem(null)}
+      />
+    )}
+    </>
   );
 };

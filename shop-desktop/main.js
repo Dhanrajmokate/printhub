@@ -228,24 +228,302 @@ app.whenReady().then(() => {
   });
 });
 
+// Printer Cache & Pacing to avoid PowerShell / WMI process storms
+let cachedPrintersResult = null;
+let lastPrinterQueryTime = 0;
+const PRINTER_CACHE_TTL_MS = 3500;
+let lastPrintDispatchTime = 0;
+
+// Helper: Convert Word documents (.docx, .doc) to PDF
+async function convertWordToPdf(inputFilePath, outputPdfPath, options = {}) {
+  // Strategy 1: Native Windows MS Word COM Automation (100% fidelity, exact fonts, tables, styles)
+  let tempDocxCopy = null;
+  try {
+    let resolvedDocx = inputFilePath;
+    const curExt = path.extname(inputFilePath).toLowerCase();
+    if (!['.docx', '.doc'].includes(curExt)) {
+      const targetExt = ['.docx', '.doc'].includes(path.extname(options.originalFileName || '').toLowerCase())
+        ? path.extname(options.originalFileName)
+        : '.docx';
+      tempDocxCopy = path.join(downloadsDir, `temp_convert_${Date.now()}${targetExt}`);
+      fs.copyFileSync(inputFilePath, tempDocxCopy);
+      resolvedDocx = tempDocxCopy;
+    }
+
+    const escapedDocx = resolvedDocx.replace(/'/g, "''");
+    const escapedPdf = outputPdfPath.replace(/'/g, "''");
+    const psCmd = `& {
+      $word = $null
+      try {
+        $word = New-Object -ComObject Word.Application
+        $word.Visible = $false
+        $word.DisplayAlerts = 0
+        $doc = $word.Documents.Open('${escapedDocx}', $false, $true, $false)
+        $doc.ExportAsFixedFormat('${escapedPdf}', 17)
+        $doc.Close(0)
+        Write-Host "DOCX_CONVERT_SUCCESS"
+      } catch {
+        Write-Host "DOCX_CONVERT_ERROR: $($_.Exception.Message)"
+      } finally {
+        if ($word) {
+          $word.Quit(0)
+          [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null
+        }
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+      }
+    }`;
+
+    await new Promise((resolve, reject) => {
+      require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], { timeout: 30000 }, (err, stdout) => {
+        if (!err && stdout && stdout.includes('DOCX_CONVERT_SUCCESS') && fs.existsSync(outputPdfPath)) {
+          resolve();
+        } else {
+          reject(new Error(stdout || (err ? err.message : 'Word COM conversion failed')));
+        }
+      });
+    });
+
+    console.log(`✅ [Word Converter] Successfully converted DOCX to native PDF via MS Word COM (${fs.statSync(outputPdfPath).size} bytes)`);
+    return outputPdfPath;
+  } catch (wordErr) {
+    console.warn(`[Word Converter] Word COM unavailable (${wordErr.message}). Falling back to JavaScript mammoth HTML renderer...`);
+  } finally {
+    if (tempDocxCopy && fs.existsSync(tempDocxCopy)) {
+      try { fs.unlinkSync(tempDocxCopy); } catch (e) {}
+    }
+  }
+
+  // Strategy 2: Pure JavaScript Mammoth.js + Electron Chromium printToPDF fallback
+  try {
+    const mammoth = require('mammoth');
+    const result = await mammoth.convertToHtml({ path: inputFilePath });
+    const htmlBody = result.value;
+
+    const paperSize = options.paperSize || 'A4';
+    const orientation = options.orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
+    const isLandscape = orientation === 'landscape';
+
+    const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: ${paperSize} ${orientation};
+    margin: 20mm 15mm;
+  }
+  body {
+    font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+    margin: 0;
+    padding: 0;
+  }
+  p { margin: 0 0 10pt; }
+  h1, h2, h3, h4, h5, h6 { color: #0f172a; margin-top: 18pt; margin-bottom: 6pt; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 6pt 8pt; text-align: left; }
+  img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>${htmlBody}</body>
+</html>`;
+
+    const win = new BrowserWindow({
+      show: false,
+      width: isLandscape ? 1123 : 794,
+      height: isLandscape ? 794 : 1123,
+      webPreferences: { offscreen: true }
+    });
+
+    try {
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`);
+      await new Promise((r) => setTimeout(r, 600));
+
+      const pdfBuf = await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize: paperSize === 'A3' ? 'A3' : paperSize === 'Legal' ? 'Legal' : paperSize === 'Letter' ? 'Letter' : 'A4',
+        landscape: isLandscape,
+        margins: { marginType: 'none' }
+      });
+
+      fs.writeFileSync(outputPdfPath, pdfBuf);
+      console.log(`✅ [Word Converter] Successfully converted DOCX via Mammoth fallback (${pdfBuf.length} bytes)`);
+      return outputPdfPath;
+    } finally {
+      if (!win.isDestroyed()) win.destroy();
+    }
+  } catch (mammothErr) {
+    console.error(`❌ [Word Converter] All DOCX conversion methods failed:`, mammothErr);
+    throw new Error(`Failed to convert Word document (.docx) to PDF: ${mammothErr.message}`);
+  }
+}
+
+// Helper: Convert non-PDF documents (Word DOCX, JPEG, JPG, PNG, WEBP, TXT) to high-fidelity PDF via MS Word COM or Electron offscreen Chromium
+async function convertDocumentToPdf(inputFilePath, originalFileName, options = {}) {
+  const ext = path.extname(originalFileName || inputFilePath).toLowerCase();
+  if (ext === '.pdf') {
+    return inputFilePath; // Already a PDF
+  }
+
+  const paperSize = options.paperSize || 'A4';
+  const orientation = options.orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
+  const isLandscape = orientation === 'landscape';
+
+  const safePdfName = `converted_${Date.now()}_${path.basename(inputFilePath, ext)}.pdf`;
+  const outputPdfPath = path.join(downloadsDir, safePdfName);
+
+  console.log(`[Document Converter] Converting non-PDF file (${ext}) to print-ready PDF: ${inputFilePath} -> ${outputPdfPath}`);
+
+  // Handle Word Documents (.docx, .doc)
+  if (['.docx', '.doc'].includes(ext)) {
+    return await convertWordToPdf(inputFilePath, outputPdfPath, { ...options, originalFileName });
+  }
+
+  const win = new BrowserWindow({
+    show: false,
+    width: isLandscape ? 1123 : 794,
+    height: isLandscape ? 794 : 1123,
+    webPreferences: {
+      offscreen: true,
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  try {
+    let contentHtml = '';
+
+    if (['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'].includes(ext)) {
+      const imgBuffer = fs.readFileSync(inputFilePath);
+      const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+      const dataUri = `data:${mime};base64,${imgBuffer.toString('base64')}`;
+
+      contentHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: ${paperSize} ${orientation};
+    margin: 0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+  img {
+    max-width: 98vw;
+    max-height: 98vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    margin: auto;
+  }
+</style>
+</head>
+<body>
+  <img src="${dataUri}" />
+</body>
+</html>`;
+    } else if (ext === '.txt') {
+      const textContent = fs.readFileSync(inputFilePath, 'utf-8');
+      const escaped = textContent
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      contentHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: ${paperSize} ${orientation};
+    margin: 15mm;
+  }
+  body {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11pt;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #111;
+    margin: 0;
+    padding: 0;
+  }
+</style>
+</head>
+<body>${escaped}</body>
+</html>`;
+    } else {
+      contentHtml = `<!DOCTYPE html><html><body><p>Document: ${originalFileName}</p></body></html>`;
+    }
+
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(contentHtml)}`);
+    // Wait for image layout & rendering
+    await new Promise((r) => setTimeout(r, 450));
+
+    const validPageSizes = ['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid'];
+    const selectedPageSize = validPageSizes.includes(paperSize) ? paperSize : 'A4';
+
+    const pdfBuffer = await win.webContents.printToPDF({
+      printBackground: true,
+      pageSize: selectedPageSize,
+      landscape: isLandscape,
+      margins: { marginType: 'none' }
+    });
+
+    fs.writeFileSync(outputPdfPath, pdfBuffer);
+    console.log(`✅ [Document Converter] Successfully created print-ready PDF (${pdfBuffer.length} bytes)`);
+    return outputPdfPath;
+  } catch (convErr) {
+    console.error(`❌ [Document Converter] Conversion to PDF failed:`, convErr);
+    return inputFilePath;
+  } finally {
+    if (!win.isDestroyed()) {
+      win.destroy();
+    }
+  }
+}
+
 // Helper: Get detailed real-time Windows printer inventory with true physical hardware detection
-async function getDetailedSystemPrinters() {
+async function getDetailedSystemPrinters(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedPrintersResult && (now - lastPrinterQueryTime) < PRINTER_CACHE_TTL_MS) {
+    return cachedPrintersResult;
+  }
+
   return new Promise((resolve) => {
     const psCmd = `& {
       $p = Get-CimInstance Win32_Printer | Select-Object Name, PortName, DriverName, WorkOffline, PrinterStatus, ExtendedPrinterStatus, DetectedErrorState, Default;
       $u = Get-CimInstance Win32_PnPEntity | Where-Object { ($_.PNPClass -eq 'Printer' -or $_.Service -eq 'usbprint' -or $_.DeviceID -like '*USBPRINT*') -and $_.Status -eq 'OK' } | Select-Object Name, DeviceID;
-      [PSCustomObject]@{ Printers = @($p); UsbPrinters = @($u) } | ConvertTo-Json -Depth 3 -Compress
+      $c = Get-CimInstance Win32_PrinterConfiguration | Select-Object Name, Duplex;
+      [PSCustomObject]@{ Printers = @($p); UsbPrinters = @($u); Configs = @($c) } | ConvertTo-Json -Depth 3 -Compress
     }`;
 
-    require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], { timeout: 4500 }, async (err, stdout) => {
+    require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], { timeout: 5000 }, async (err, stdout) => {
       let rawPrinters = [];
       let activeUsbPrinters = [];
+      let printerConfigs = [];
 
       if (!err && stdout && stdout.trim()) {
         try {
           const parsed = JSON.parse(stdout.trim());
           rawPrinters = Array.isArray(parsed.Printers) ? parsed.Printers : (parsed.Printers ? [parsed.Printers] : []);
           activeUsbPrinters = Array.isArray(parsed.UsbPrinters) ? parsed.UsbPrinters : (parsed.UsbPrinters ? [parsed.UsbPrinters] : []);
+          printerConfigs = Array.isArray(parsed.Configs) ? parsed.Configs : (parsed.Configs ? [parsed.Configs] : []);
         } catch (e) {}
       }
 
@@ -303,12 +581,14 @@ async function getDetailedSystemPrinters() {
         const isVirtual = isVirtualPrinter(p.Name, p.PortName, p.DriverName);
         const lowerPort = String(p.PortName || '').toLowerCase();
 
-        // Check if Windows marks it offline
+        // Check if Windows explicitly marks it offline.
+        // NOTE: PrinterStatus 3 (Idle), 4 (Printing), 1/2 (Normal/Other), 5 (Warming up) are ALL online!
+        // ONLY PrinterStatus 7 is PRINTER_STATUS_OFFLINE.
+        // We intentionally do NOT check DetectedErrorState !== 0 because active ink-tank/GDI printers report non-zero codes for low ink warnings or during active printing.
         const isMarkedOffline = Boolean(
           p.WorkOffline === true ||
           p.PrinterStatus === 7 ||
-          p.ExtendedPrinterStatus === 7 ||
-          (p.DetectedErrorState && p.DetectedErrorState !== 0)
+          p.ExtendedPrinterStatus === 7
         );
 
         // For USB printers, also require that an active USB printer hardware device is plugged in!
@@ -319,6 +599,10 @@ async function getDetailedSystemPrinters() {
 
         const isOnline = !isVirtual && !isMarkedOffline && hasHardwareConnection;
 
+        // Check hardware duplex capability
+        const cfgMatch = printerConfigs.find((c) => c.Name && c.Name.toLowerCase() === (p.Name || '').toLowerCase());
+        const supportsHardwareDuplex = cfgMatch ? Boolean(cfgMatch.Duplex) : false;
+
         return {
           name: p.Name,
           portName: p.PortName,
@@ -327,14 +611,15 @@ async function getDetailedSystemPrinters() {
           isVirtual: isVirtual,
           isOnline: isOnline,
           workOffline: Boolean(p.WorkOffline),
-          isDefault: Boolean(p.Default)
+          isDefault: Boolean(p.Default),
+          supportsDuplex: supportsHardwareDuplex
         };
       });
 
       const physicalPrinters = enriched.filter((p) => p.isPhysical);
       const onlinePhysicalPrinters = physicalPrinters.filter((p) => p.isOnline);
 
-      resolve({
+      const result = {
         success: true,
         printers: enriched,
         defaultPrinter: defaultName,
@@ -342,7 +627,11 @@ async function getDetailedSystemPrinters() {
         physicalPrinterCount: physicalPrinters.length,
         onlinePhysicalPrinterCount: onlinePhysicalPrinters.length,
         connectedPhysicalPrinters: onlinePhysicalPrinters.map((p) => p.name)
-      });
+      };
+
+      cachedPrintersResult = result;
+      lastPrinterQueryTime = Date.now();
+      resolve(result);
     });
   });
 }
@@ -416,6 +705,12 @@ ipcMain.handle('print-job', async (event, jobData) => {
       throw new Error('Document file could not be located or downloaded.');
     }
 
+    // Convert images / non-PDFs to PDF using Electron offscreen Chromium so SumatraPDF prints cleanly without blank pages
+    const printablePdfPath = await convertDocumentToPdf(localFilePath, jobData.originalFileName, {
+      paperSize: jobData.paperSize,
+      orientation: jobData.orientation
+    });
+
     // 2. Real-time physical printer validation
     const printerDetails = await getDetailedSystemPrinters();
     const config = loadConfig();
@@ -457,11 +752,17 @@ ipcMain.handle('print-job', async (event, jobData) => {
       throw new Error('No physical printer is available. Please connect a physical printer.');
     }
 
-    const finalSide = jobData.duplexMode === 'DUPLEX_SHORT'
+    // Duplex check: if target printer does not have automatic duplex hardware, fallback to simplex
+    let finalSide = jobData.duplexMode === 'DUPLEX_SHORT'
       ? 'duplexshort'
       : (jobData.duplexMode === 'DUPLEX_LONG' || jobData.duplexMode === 'DUPLEX')
       ? 'duplexlong'
       : 'simplex';
+
+    if (finalSide !== 'simplex' && targetObj && targetObj.supportsDuplex === false) {
+      console.log(`[Hardware Spooler] Printer '${targetPrinter}' does not have automatic duplex hardware (Duplex: False). Gracefully spooling as simplex.`);
+      finalSide = 'simplex';
+    }
 
     const finalSubset = jobData.pageSubset === 'ODD' ? 'odd' : jobData.pageSubset === 'EVEN' ? 'even' : undefined;
     const finalScale = jobData.scaling?.toLowerCase() === 'shrink'
@@ -478,6 +779,15 @@ ipcMain.handle('print-job', async (event, jobData) => {
 
     let physicalDispatched = false;
     let dispatchedPrinterName = targetPrinter;
+
+    // Spooler pacing buffer: ensure at least 1200ms gap between consecutive print jobs to prevent port lockups
+    const timeSinceLastPrint = Date.now() - lastPrintDispatchTime;
+    if (timeSinceLastPrint < 1200) {
+      const waitMs = 1200 - timeSinceLastPrint;
+      console.log(`[Hardware Spooler] Spooler pacing: pausing ${waitMs}ms before dispatching next job...`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+    lastPrintDispatchTime = Date.now();
 
     // 3. Spool to Windows Hardware Printer with robust multi-tier fallback
     console.log(`[Hardware Spooler] Dispatching to physical printer: ${targetPrinter}...`);
@@ -497,13 +807,13 @@ ipcMain.handle('print-job', async (event, jobData) => {
     };
 
     try {
-      await ptp.print(localFilePath, ptpOptions);
+      await ptp.print(printablePdfPath, ptpOptions);
       physicalDispatched = true;
       console.log(`✅ [Hardware Spooler] Paper job successfully spooled to ${targetPrinter}!`);
     } catch (spoolErr) {
       console.warn(`[Hardware Spooler] Full specs print failed (${spoolErr.message}). Retrying with safe basic flags...`);
       try {
-        await ptp.print(localFilePath, {
+        await ptp.print(printablePdfPath, {
           printer: targetPrinter,
           copies: Math.max(1, parseInt(jobData.copies || 1, 10)),
           silent: true
@@ -513,7 +823,7 @@ ipcMain.handle('print-job', async (event, jobData) => {
       } catch (basicErr) {
         console.warn(`[Hardware Spooler] Basic ptp print failed (${basicErr.message}). Retrying with Windows shell PrintTo...`);
         try {
-          const escapedPath = localFilePath.replace(/'/g, "''");
+          const escapedPath = printablePdfPath.replace(/'/g, "''");
           const escapedPrinter = targetPrinter.replace(/'/g, "''");
           const psCmd = `Start-Process -FilePath '${escapedPath}' -Verb PrintTo -ArgumentList '"${escapedPrinter}"' -PassThru | Wait-Process -Timeout 15`;
           await new Promise((resolve, reject) => {

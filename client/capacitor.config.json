@@ -1,0 +1,10 @@
+{
+  "appId": "com.printhub.app",
+  "appName": "PrintHub",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true,
+    "androidScheme": "https"
+  }
+}

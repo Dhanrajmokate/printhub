@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, Printer, PackageCheck, Download, Ban, ArrowLeft, RefreshCw, FileText, Camera, ExternalLink, X } from 'lucide-react';
+import { CheckCircle2, Clock, Printer, PackageCheck, Download, Ban, ArrowLeft, RefreshCw, FileText, Camera, ExternalLink, X, RotateCcw } from 'lucide-react';
 import { Order, OrderStatus } from '../../types/index.js';
 import { api } from '../../services/api.js';
 import { generateReceiptPdf } from '../../services/receipt.js';
 import { useToast } from '../../context/ToastContext.js';
 import { sseClient } from '../../services/sse.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useCart } from '../../context/CartContext.js';
 
 interface OrderTrackerProps {
   orderId: string;
@@ -19,6 +20,30 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
   const [isViewingProof, setIsViewingProof] = useState(false);
   const { showToast } = useToast();
   const { refreshUser } = useAuth();
+  const { reorderOrder, selectedShop, items, clearCart, openCart } = useCart();
+
+  const handleReorder = () => {
+    if (!order || !order.items || order.items.length === 0) {
+      showToast('error', 'Reorder Failed', 'No printable items found in this order.');
+      return;
+    }
+
+    if (selectedShop && order.shop && selectedShop.id !== order.shop.id && items.length > 0) {
+      const confirmSwitch = window.confirm(
+        `Your cart already contains ${items.length} item(s) from "${selectedShop.name}". Reordering will replace your cart with items from "${order.shop.name}". Do you want to proceed?`
+      );
+      if (!confirmSwitch) return;
+      clearCart();
+    }
+
+    const res = reorderOrder(order);
+    if (res.success) {
+      showToast('success', 'Order Added to Cart', res.message);
+      openCart();
+    } else {
+      showToast('error', 'Reorder Failed', res.message);
+    }
+  };
 
   const fetchOrder = async () => {
     try {
@@ -175,6 +200,16 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
           >
             <Download className="w-4 h-4" />
             PDF Receipt
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReorder}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all flex items-center gap-1.5 hover:scale-[1.02]"
+            title="Reorder this print job"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Reorder</span>
           </button>
 
           {order.status === 'PRINTED' && (
