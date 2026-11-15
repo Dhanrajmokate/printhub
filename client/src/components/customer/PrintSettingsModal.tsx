@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sliders, Calculator, Check, AlertCircle, Copy, FileText } from 'lucide-react';
+import { X, Sliders, Calculator, Check, AlertCircle, Copy, FileText, Award, Maximize2 } from 'lucide-react';
 import { PrintSettings, Shop, UploadedFileMeta } from '../../types/index.js';
 import { useCart, parsePageRange } from '../../context/CartContext.js';
 
@@ -333,35 +333,112 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
             )}
           </div>
 
-          {/* 6. SCALING & COLLATE */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                Page Scaling
+          {/* 6. SCALING & CERTIFICATE FIT MODE */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Page Scaling & Certificate Layout
               </label>
-              <select
-                value={settings.scaling}
-                onChange={(e: any) => setSettings((s) => ({ ...s, scaling: e.target.value }))}
-                className="w-full h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium text-sm focus:border-indigo-600 focus:outline-none"
-              >
-                <option value="FIT">Fit to Printable Margin (Default)</option>
-                <option value="ACTUAL">Actual 100% Size (No Scale)</option>
-                <option value="SHRINK">Shrink Oversized Pages Only</option>
-              </select>
+              {settings.scaling === 'FIT_PAGE' && (
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                  <Award className="w-3 h-3" />
+                  Certificate Fit Active
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center gap-3 pt-6">
-              <label className="relative flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.collate}
-                  onChange={(e) => setSettings((s) => ({ ...s, collate: e.target.checked }))}
-                  className="w-5 h-5 rounded-lg text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
-                />
-                <span className="ml-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Collate copies (1,2,3... 1,2,3...)
-                </span>
-              </label>
+            {/* Quick 1-Click Certificate / Full-Page Fit Banner Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (settings.scaling === 'FIT_PAGE') {
+                  setSettings((s) => ({ ...s, scaling: 'FIT' }));
+                } else {
+                  // When selecting Certificate mode, default orientation to LANDSCAPE if currently AUTO
+                  setSettings((s) => ({
+                    ...s,
+                    scaling: 'FIT_PAGE',
+                    orientation: s.orientation === 'AUTO' ? 'LANDSCAPE' : s.orientation
+                  }));
+                }
+              }}
+              className={`w-full p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between text-left ${
+                settings.scaling === 'FIT_PAGE'
+                  ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 shadow-md shadow-amber-500/10'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 hover:border-amber-300 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    settings.scaling === 'FIT_PAGE'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">Fit to Whole Page (Certificate / Photo)</span>
+                    <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Expands certificate edge-to-edge on full paper with zero cutoff (auto-adjusts to Landscape).
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-2 ${
+                  settings.scaling === 'FIT_PAGE'
+                    ? 'border-amber-600 bg-amber-600 text-white'
+                    : 'border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                {settings.scaling === 'FIT_PAGE' && <Check className="w-3 h-3 stroke-[3]" />}
+              </div>
+            </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Advanced Scaling Selection
+                </label>
+                <select
+                  value={settings.scaling}
+                  onChange={(e: any) => {
+                    const nextScale = e.target.value;
+                    setSettings((s) => ({
+                      ...s,
+                      scaling: nextScale,
+                      orientation: nextScale === 'FIT_PAGE' && s.orientation === 'AUTO' ? 'LANDSCAPE' : s.orientation
+                    }));
+                  }}
+                  className="w-full h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"
+                >
+                  <option value="FIT">Standard Document Fit (With Margins)</option>
+                  <option value="FIT_PAGE">🎓 Fit to Whole Page (Certificate / Edge-to-Edge)</option>
+                  <option value="ACTUAL">Actual 100% Size (No Scaling)</option>
+                  <option value="SHRINK">Shrink Oversized Pages Only</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 pt-4 sm:pt-6">
+                <label className="relative flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.collate}
+                    onChange={(e) => setSettings((s) => ({ ...s, collate: e.target.checked }))}
+                    className="w-5 h-5 rounded-lg text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
+                  />
+                  <span className="ml-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Collate copies (1,2,3... 1,2,3...)
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 

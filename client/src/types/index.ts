@@ -104,7 +104,7 @@ export interface PrintSettings {
   quality: 'DRAFT' | 'NORMAL' | 'HIGH';
   pageRange: string;
   pageSubset?: 'ALL' | 'ODD' | 'EVEN';
-  scaling: 'FIT' | 'ACTUAL' | 'SHRINK';
+  scaling: 'FIT' | 'ACTUAL' | 'SHRINK' | 'FIT_PAGE';
   collate: boolean;
 }
 

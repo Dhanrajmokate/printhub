@@ -369,13 +369,42 @@ async function convertDocumentToPdf(inputFilePath, originalFileName, options = {
   }
 
   const paperSize = options.paperSize || 'A4';
-  const orientation = options.orientation?.toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
-  const isLandscape = orientation === 'landscape';
+  const isFitPage = options.scaling === 'FIT_PAGE';
+  let isLandscape = options.orientation?.toLowerCase() === 'landscape';
+
+  // For images, detect width/height to auto-align certificates to landscape or portrait
+  if (['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'].includes(ext)) {
+    try {
+      const imgBuffer = fs.readFileSync(inputFilePath);
+      if (ext === '.png' && imgBuffer.length > 24) {
+        const w = imgBuffer.readUInt32BE(16);
+        const h = imgBuffer.readUInt32BE(20);
+        if (options.orientation?.toLowerCase() === 'auto' || (isFitPage && options.orientation?.toLowerCase() !== 'portrait')) {
+          isLandscape = w > h;
+        }
+      } else if (['.jpg', '.jpeg'].includes(ext)) {
+        let offset = 2;
+        while (offset < imgBuffer.length - 8) {
+          if (imgBuffer[offset] === 0xFF && [0xC0, 0xC1, 0xC2].includes(imgBuffer[offset + 1])) {
+            const h = imgBuffer.readUInt16BE(offset + 5);
+            const w = imgBuffer.readUInt16BE(offset + 7);
+            if (options.orientation?.toLowerCase() === 'auto' || (isFitPage && options.orientation?.toLowerCase() !== 'portrait')) {
+              isLandscape = w > h;
+            }
+            break;
+          }
+          offset += 2 + (imgBuffer.readUInt16BE(offset + 2) || 2);
+        }
+      }
+    } catch (e) {}
+  }
+
+  const orientation = isLandscape ? 'landscape' : 'portrait';
 
   const safePdfName = `converted_${Date.now()}_${path.basename(inputFilePath, ext)}.pdf`;
   const outputPdfPath = path.join(downloadsDir, safePdfName);
 
-  console.log(`[Document Converter] Converting non-PDF file (${ext}) to print-ready PDF: ${inputFilePath} -> ${outputPdfPath}`);
+  console.log(`[Document Converter] Converting non-PDF file (${ext}, fitPage=${isFitPage}) to print-ready PDF: ${inputFilePath} -> ${outputPdfPath}`);
 
   // Handle Word Documents (.docx, .doc)
   if (['.docx', '.doc'].includes(ext)) {
@@ -423,6 +452,16 @@ async function convertDocumentToPdf(inputFilePath, originalFileName, options = {
     overflow: hidden;
   }
   img {
+    ${isFitPage ? `
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: fill;
+    display: block;
+    margin: 0;
+    padding: 0;
+    ` : `
     max-width: 98vw;
     max-height: 98vh;
     width: auto;
@@ -430,6 +469,7 @@ async function convertDocumentToPdf(inputFilePath, originalFileName, options = {
     object-fit: contain;
     display: block;
     margin: auto;
+    `}
   }
 </style>
 </head>
@@ -708,7 +748,8 @@ ipcMain.handle('print-job', async (event, jobData) => {
     // Convert images / non-PDFs to PDF using Electron offscreen Chromium so SumatraPDF prints cleanly without blank pages
     const printablePdfPath = await convertDocumentToPdf(localFilePath, jobData.originalFileName, {
       paperSize: jobData.paperSize,
-      orientation: jobData.orientation
+      orientation: jobData.orientation,
+      scaling: jobData.scaling
     });
 
     // 2. Real-time physical printer validation

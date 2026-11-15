@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, X, Trash2, ArrowRight, FileText, Image as ImageIcon, Sliders } from 'lucide-react';
+import { ShoppingBag, X, Trash2, ArrowRight, FileText, Image as ImageIcon, Sliders, Award } from 'lucide-react';
 import { useCart } from '../../context/CartContext.js';
 import { EmptyState } from '../common/EmptyState.js';
 import { PrintSettingsModal } from './PrintSettingsModal.js';
@@ -174,6 +174,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       {item.settings.pageRange !== 'ALL' && (
                         <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                           Range: {item.settings.pageRange}
+                        </span>
+                      )}
+
+                      {item.settings.scaling === 'FIT_PAGE' && (
+                        <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-800">
+                          <Award className="w-3 h-3" />
+                          Fit to Whole Page (Certificate)
                         </span>
                       )}
                     </div>

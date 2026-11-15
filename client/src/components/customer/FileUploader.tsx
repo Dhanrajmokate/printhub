@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, Image as ImageIcon, Trash2, Sliders, CheckCircle, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileText, Image as ImageIcon, Trash2, Sliders, CheckCircle, AlertCircle, Award } from 'lucide-react';
 import { UploadedFileMeta, PrintSettings } from '../../types/index.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -197,11 +197,43 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                         <span className="capitalize font-medium">
                           {item.settings.colorMode === 'COLOR' ? '🎨 Color' : '⬛ B&W'} • {item.settings.duplexMode === 'DUPLEX' ? 'Double-sided' : 'Single-sided'} • {item.settings.copies} {item.settings.copies === 1 ? 'copy' : 'copies'}
                         </span>
+                        {item.settings.scaling === 'FIT_PAGE' && (
+                          <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                            <Award className="w-3 h-3" />
+                            Fit to Whole Page (Certificate)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isFitPage = item.settings.scaling === 'FIT_PAGE';
+                        const updated = [...files];
+                        updated[idx] = {
+                          ...item,
+                          settings: {
+                            ...item.settings,
+                            scaling: isFitPage ? 'FIT' : 'FIT_PAGE',
+                            orientation: (!isFitPage && item.settings.orientation === 'AUTO') ? 'LANDSCAPE' : item.settings.orientation
+                          }
+                        };
+                        onFilesChange(updated);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                        item.settings.scaling === 'FIT_PAGE'
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                          : 'bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600'
+                      }`}
+                      title="Toggle full page fit (Recommended for certificates, photos, and marksheets)"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      <span>{item.settings.scaling === 'FIT_PAGE' ? '✓ Certificate Fit' : 'Fit to Page'}</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => onOpenSettings(idx)}

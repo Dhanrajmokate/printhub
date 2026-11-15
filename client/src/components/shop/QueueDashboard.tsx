@@ -740,8 +740,12 @@ export const QueueDashboard: React.FC = () => {
 
                                 {/* Scaling Badge */}
                                 {item.scaling && item.scaling !== 'FIT' && (
-                                  <span className="px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-medium border border-slate-300/60 dark:border-slate-600/50">
-                                    {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}
+                                  <span className={`px-2 py-0.5 rounded-md font-medium border ${
+                                    item.scaling === 'FIT_PAGE'
+                                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-bold'
+                                      : 'bg-slate-200/80 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 border-slate-300/60 dark:border-slate-600/50'
+                                  }`}>
+                                    {item.scaling === 'FIT_PAGE' ? '🎓 Fit to Page (Certificate)' : item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}
                                   </span>
                                 )}
 
