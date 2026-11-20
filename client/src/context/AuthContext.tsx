@@ -2,7 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { api } from '../services/api.js';
 import { User } from '../types/index.js';
 import { sseClient } from '../services/sse.js';
-import { DEMO_CUSTOMER_USER, DEMO_SHOP_USER, DEMO_DHANRAJ_SHOP_USER, isDemoSession } from '../services/demoData.js';
+import {
+  DEMO_CUSTOMER_USER,
+  DEMO_SHOP_USER,
+  DEMO_DHANRAJ_SHOP_USER,
+  DEMO_CAMPUS_SHOP_USER,
+  DEMO_LIBRARY_SHOP_USER,
+  isDemoSession
+} from '../services/demoData.js';
 
 interface AuthContextType {
   user: User | null;
@@ -130,31 +137,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const cleanEmail = (email || '').trim().toLowerCase();
-    const isDemoCustomer = cleanEmail === 'customer@printhub.com' && password === 'password123';
-    const isDemoShop = cleanEmail === 'shop@printhub.com' && password === 'password123';
-    const isDemoDhanraj = (cleanEmail === 'dhanraj@printhub.com' || cleanEmail === 'dhanraj@gmail.com') && password === 'password123';
 
-    // Demo accounts log in immediately without network vulnerability
-    if (isDemoCustomer) {
-      return loginAsDemo('CUSTOMER');
-    }
-    if (isDemoShop) {
-      return loginAsDemo('SHOP');
-    }
-    if (isDemoDhanraj) {
-      const demoToken = 'demo-jwt-token-dhanraj';
+    // Helper for shop login persistence
+    const applyShopLogin = (shopUserObj: User, tokenSuffix: string) => {
+      const demoToken = `demo-jwt-token-${tokenSuffix}`;
       setToken(demoToken);
-      setUser(DEMO_DHANRAJ_SHOP_USER);
+      setUser(shopUserObj);
       sessionStorage.setItem('printhub_token', demoToken);
-      sessionStorage.setItem('printhub_user', JSON.stringify(DEMO_DHANRAJ_SHOP_USER));
+      sessionStorage.setItem('printhub_user', JSON.stringify(shopUserObj));
       localStorage.setItem('printhub_token', demoToken);
-      localStorage.setItem('printhub_user', JSON.stringify(DEMO_DHANRAJ_SHOP_USER));
+      localStorage.setItem('printhub_user', JSON.stringify(shopUserObj));
       if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
         (window as any).electronAPI.getConfig().then((cfg: any) => {
-          (window as any).electronAPI.saveConfig({ ...cfg, shopToken: demoToken, shopUser: DEMO_DHANRAJ_SHOP_USER });
+          (window as any).electronAPI.saveConfig({ ...cfg, shopToken: demoToken, shopUser: shopUserObj });
         }).catch(() => {});
       }
       return { success: true };
+    };
+
+    // 1. Customer Demo
+    if (['customer@printhub.com', 'customer@gmail.com', 'student@gmail.com'].includes(cleanEmail) && password === 'password123') {
+      return loginAsDemo('CUSTOMER');
+    }
+
+    // 2. Dhanraj Station Print Shop (All Gmail & PrintHub aliases)
+    if (
+      ['dhanraj@gmail.com', 'dhanraj@printhub.com', 'dhanrajprint@gmail.com', 'dhanrajmokate@gmail.com', 'rahulmokate326@gmail.com'].includes(cleanEmail) &&
+      password === 'password123'
+    ) {
+      return applyShopLogin(DEMO_DHANRAJ_SHOP_USER, 'dhanraj');
+    }
+
+    // 3. Apex QuickPrint / PrintHub Metro Central (All Gmail & PrintHub aliases)
+    if (
+      ['shop@gmail.com', 'shop@printhub.com', 'apex@gmail.com', 'apexprint@gmail.com', 'printhub@gmail.com'].includes(cleanEmail) &&
+      password === 'password123'
+    ) {
+      return applyShopLogin(DEMO_SHOP_USER, 'apex');
+    }
+
+    // 4. Campus Express Print Hub (All Gmail & PrintHub aliases)
+    if (
+      ['campus@gmail.com', 'campus@printhub.com', 'campusexpress@gmail.com', 'campusprint@gmail.com'].includes(cleanEmail) &&
+      password === 'password123'
+    ) {
+      return applyShopLogin(DEMO_CAMPUS_SHOP_USER, 'campus');
+    }
+
+    // 5. Central Library Annex (All Gmail & PrintHub aliases)
+    if (
+      ['library@gmail.com', 'library@printhub.com', 'centrallibrary@gmail.com', 'libraryprint@gmail.com'].includes(cleanEmail) &&
+      password === 'password123'
+    ) {
+      return applyShopLogin(DEMO_LIBRARY_SHOP_USER, 'library');
     }
 
     try {

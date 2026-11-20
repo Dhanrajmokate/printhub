@@ -144,6 +144,115 @@ export const DEMO_DHANRAJ_SHOP_USER: User = {
   }
 };
 
+export const DEMO_CAMPUS_SHOP_USER: User = {
+  id: 'campus-shop-user-id',
+  email: 'campus@printhub.com',
+  name: 'Campus Print Corner',
+  phone: '9123456789',
+  role: 'SHOP',
+  isVerified: true,
+  shop: {
+    id: 'demo-shop-campus',
+    userId: 'campus-shop-user-id',
+    name: 'Campus Express Print Hub',
+    address: 'Block C, University Student Center',
+    phone: '9123456789',
+    latitude: 19.8800,
+    longitude: 75.3440,
+    upiId: 'campusexpress@upi',
+    upiName: 'Campus Express Print Hub',
+    bwSingleRate: 1.5,
+    bwDuplexRate: 2.5,
+    colorSingleRate: 8.0,
+    colorDuplexRate: 15.0,
+    autoConvert: true,
+    capabilities: {
+      supportsBw: true,
+      supportsColor: true,
+      supportsDuplex: true,
+      autoConvert: true
+    },
+    printers: [
+      {
+        id: 'demo-printer-campus-1',
+        shopId: 'demo-shop-campus',
+        name: 'Campus B&W Laser 8001',
+        port: 8001,
+        type: 'BW',
+        supportsDuplex: true,
+        isOnline: true,
+        autoConvert: true,
+        healthStatus: { isOnline: true, statusText: 'Online & Ready (Port 8001)' }
+      },
+      {
+        id: 'demo-printer-campus-2',
+        shopId: 'demo-shop-campus',
+        name: 'Campus Color Jet 8002',
+        port: 8002,
+        type: 'COLOR',
+        supportsDuplex: true,
+        isOnline: true,
+        autoConvert: true,
+        healthStatus: { isOnline: true, statusText: 'Online & Ready (Port 8002)' }
+      }
+    ],
+    stats: {
+      totalOrders: 85,
+      completedOrders: 82,
+      rating: 4.8
+    }
+  }
+};
+
+export const DEMO_LIBRARY_SHOP_USER: User = {
+  id: 'library-shop-user-id',
+  email: 'library@printhub.com',
+  name: 'Central Library Print Desk',
+  phone: '9876543211',
+  role: 'SHOP',
+  isVerified: true,
+  shop: {
+    id: 'demo-shop-2',
+    userId: 'library-shop-user-id',
+    name: 'PrintHub Central Library Annex',
+    address: 'Central Library, 1st Floor, Reading Hall Entrance',
+    phone: '9876543211',
+    latitude: 19.8788,
+    longitude: 75.3455,
+    upiId: 'libraryprint@upi',
+    upiName: 'Library Express Print',
+    bwSingleRate: 1.5,
+    bwDuplexRate: 2.5,
+    colorSingleRate: 8.0,
+    colorDuplexRate: 15.0,
+    autoConvert: true,
+    capabilities: {
+      supportsBw: true,
+      supportsColor: true,
+      supportsDuplex: true,
+      autoConvert: true
+    },
+    printers: [
+      {
+        id: 'demo-printer-3',
+        shopId: 'demo-shop-2',
+        name: 'Library Xerox Laser Pro',
+        port: 8003,
+        type: 'BW',
+        supportsDuplex: true,
+        isOnline: true,
+        autoConvert: true,
+        healthStatus: { isOnline: true, statusText: 'Online & Ready (Port 8003)' }
+      }
+    ],
+    stats: {
+      totalOrders: 68,
+      completedOrders: 66,
+      rating: 4.8
+    }
+  }
+};
+
 export const DEMO_SHOPS: Shop[] = [
   DEMO_SHOP_USER.shop!,
   DEMO_DHANRAJ_SHOP_USER.shop!,
