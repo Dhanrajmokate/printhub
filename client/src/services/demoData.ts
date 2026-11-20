@@ -587,7 +587,9 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
   }
 
   if (url.includes('/orders/shop')) {
-    return { success: true, orders: DEMO_ORDERS };
+    const queue = DEMO_ORDERS.filter((o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+    const history = DEMO_ORDERS.filter((o) => o.status === 'COMPLETED' || o.status === 'CANCELLED');
+    return { success: true, queue, history, orders: DEMO_ORDERS };
   }
 
   if (url.includes('/orders') && m === 'GET') {

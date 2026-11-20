@@ -89,10 +89,20 @@ export const QueueDashboard: React.FC = () => {
   const fetchQueue = async () => {
     try {
       const res = await api.get('/orders/shop/queue');
-      if (res.data.success) {
-        setQueueOrders(res.data.queue);
-        setHistoryOrders(res.data.history);
-        processAutoPrint(res.data.queue);
+      if (res.data && res.data.success) {
+        const rawQueue = res.data.queue ?? (Array.isArray(res.data.orders) ? res.data.orders.filter((o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED') : []);
+        const rawHistory = res.data.history ?? (Array.isArray(res.data.orders) ? res.data.orders.filter((o: any) => o.status === 'COMPLETED' || o.status === 'CANCELLED') : []);
+
+        const safeQueue: Order[] = Array.isArray(rawQueue)
+          ? rawQueue.map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
+          : [];
+        const safeHistory: Order[] = Array.isArray(rawHistory)
+          ? rawHistory.map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
+          : [];
+
+        setQueueOrders(safeQueue);
+        setHistoryOrders(safeHistory);
+        processAutoPrint(safeQueue);
       }
     } catch (err) {
       console.error('Failed to fetch print queue:', err);
@@ -371,9 +381,9 @@ export const QueueDashboard: React.FC = () => {
       if (res.data.success) {
         showToast('info', 'Document Removed', `'${itemTitle}' deleted.`);
         setQueueOrders((prev) =>
-          prev
-            .map((o) => (o.id !== orderId ? o : { ...o, items: o.items.filter((i) => i.id !== itemId) }))
-            .filter((o) => o.items.length > 0)
+          (prev || [])
+            .map((o) => (o.id !== orderId ? o : { ...o, items: (o.items || []).filter((i) => i.id !== itemId) }))
+            .filter((o) => (o.items || []).length > 0)
         );
         fetchQueue();
       }
@@ -399,7 +409,7 @@ export const QueueDashboard: React.FC = () => {
               <Clock className="w-3.5 h-3.5" />
               <span>FIFO Print Queue</span>
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-[10px]">
-                {queueOrders.length}
+                {(queueOrders || []).length}
               </span>
             </button>
 
@@ -414,7 +424,7 @@ export const QueueDashboard: React.FC = () => {
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Completed / History</span>
               <span className="px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px]">
-                {historyOrders.length}
+                {(historyOrders || []).length}
               </span>
             </button>
           </div>
@@ -469,7 +479,7 @@ export const QueueDashboard: React.FC = () => {
           <SkeletonShimmer variant="card" count={3} />
         </div>
       ) : tab === 'QUEUE' ? (
-        queueOrders.length === 0 ? (
+        (queueOrders || []).length === 0 ? (
           <EmptyState
             icon={Printer}
             title="Print Queue is Clear"
@@ -481,7 +491,7 @@ export const QueueDashboard: React.FC = () => {
           <div className="space-y-4">
             {/* Top-Level Queue-Wide Bulk Print Action Bar */}
             {(() => {
-              const pendingOrders = queueOrders.filter((o) => o.items && o.items.some((i) => i.status !== 'PRINTED'));
+              const pendingOrders = (queueOrders || []).filter((o) => o && o.items && o.items.some((i) => i.status !== 'PRINTED'));
               const totalPendingItems = pendingOrders.reduce((acc, o) => acc + (o.items?.filter((i) => i.status !== 'PRINTED').length || 0), 0);
 
               if (totalPendingItems === 0) return null;
@@ -834,7 +844,7 @@ export const QueueDashboard: React.FC = () => {
         )
       ) : (
         /* History Tab */
-        historyOrders.length === 0 ? (
+        (historyOrders || []).length === 0 ? (
           <EmptyState
             icon={CheckCircle2}
             title="No Past Orders"
@@ -844,7 +854,7 @@ export const QueueDashboard: React.FC = () => {
           />
         ) : (
           <div className="space-y-3">
-            {historyOrders.map((order) => (
+            {(historyOrders || []).map((order) => (
               <div
                 key={order.id}
                 className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
@@ -867,7 +877,7 @@ export const QueueDashboard: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-slate-500 dark:text-slate-400 mt-1">
-                    Customer: <strong>{order.customer?.name}</strong> ({order.customer?.phone}) • {order.items.length} file(s) • {new Date(order.updatedAt).toLocaleString()}
+                    Customer: <strong>{order.customer?.name}</strong> ({order.customer?.phone}) • {(order.items || []).length} file(s) • {new Date(order.updatedAt).toLocaleString()}
                   </p>
                 </div>
 
