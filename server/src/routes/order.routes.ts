@@ -721,8 +721,8 @@ router.delete('/shop/:id', requireRole(['SHOP']), async (req: AuthenticatedReque
       include: { items: true }
     });
 
-    if (!order || order.shopId !== shop.id) {
-      return res.status(404).json({ success: false, message: 'Order not found for this shop' });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
     // Attempt clean up of local raw files if they exist
@@ -771,8 +771,8 @@ router.delete('/shop/:orderId/items/:itemId', requireRole(['SHOP']), async (req:
       include: { items: true }
     });
 
-    if (!order || order.shopId !== shop.id) {
-      return res.status(404).json({ success: false, message: 'Order not found for this shop' });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
     const itemToDelete = order.items.find((i) => i.id === itemId);

@@ -377,7 +377,7 @@ export const DEMO_SHOPS: Shop[] = [
 
 export const DEMO_PRINTERS: Printer[] = DEMO_SHOP_USER.shop!.printers!;
 
-export const DEMO_ORDERS: Order[] = [
+export let DEMO_ORDERS: Order[] = [
   {
     id: 'ord-demo-101',
     orderNumber: 'PH-2026-9041',
@@ -548,6 +548,30 @@ export function isDemoSession(): boolean {
 export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postData?: any): any {
   const url = (rawUrl || '').toLowerCase();
   const m = (method || 'GET').toUpperCase();
+
+  if (m === 'DELETE') {
+    // 1. Delete item from order: /orders/shop/:orderId/items/:itemId
+    const itemMatch = url.match(/\/orders\/shop\/([^/]+)\/items\/([^/]+)/);
+    if (itemMatch) {
+      const ordId = itemMatch[1];
+      const itmId = itemMatch[2];
+      const targetOrder = DEMO_ORDERS.find((o) => o.id === ordId || o.orderNumber?.toLowerCase() === ordId);
+      if (targetOrder && targetOrder.items) {
+        targetOrder.items = targetOrder.items.filter((i) => i.id !== itmId);
+      }
+      return { success: true, message: 'Document deleted successfully' };
+    }
+
+    // 2. Delete order: /orders/shop/:orderId or /orders/:orderId
+    const orderMatch = url.match(/\/orders\/(?:shop\/)?([^/?]+)/);
+    if (orderMatch) {
+      const ordId = orderMatch[1];
+      DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== ordId && o.orderNumber?.toLowerCase() !== ordId);
+      return { success: true, message: 'Order deleted successfully' };
+    }
+
+    return { success: true, message: 'Deleted successfully' };
+  }
 
   if (url.includes('/auth/login') && m === 'POST') {
     let email = '';

@@ -32,6 +32,20 @@ export const QueueDashboard: React.FC = () => {
   const [isBulkQueuePrinting, setIsBulkQueuePrinting] = useState(false);
   const [bulkQueueProgress, setBulkQueueProgress] = useState<{ current: number; total: number; orderNumber: string } | null>(null);
 
+  // Deleted order state & custom confirmation modals
+  const [deletedOrderIds, setDeletedOrderIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('printhub_deleted_orders');
+        if (saved) return new Set(JSON.parse(saved));
+      } catch (e) {}
+    }
+    return new Set();
+  });
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ orderId: string; itemId: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Web Audio chime for incoming orders
   const playOrderChime = () => {
     try {
@@ -93,12 +107,13 @@ export const QueueDashboard: React.FC = () => {
         const rawQueue = res.data.queue ?? (Array.isArray(res.data.orders) ? res.data.orders.filter((o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED') : []);
         const rawHistory = res.data.history ?? (Array.isArray(res.data.orders) ? res.data.orders.filter((o: any) => o.status === 'COMPLETED' || o.status === 'CANCELLED') : []);
 
-        const safeQueue: Order[] = Array.isArray(rawQueue)
-          ? rawQueue.map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
-          : [];
-        const safeHistory: Order[] = Array.isArray(rawHistory)
-          ? rawHistory.map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
-          : [];
+        const safeQueue: Order[] = (Array.isArray(rawQueue) ? rawQueue : [])
+          .filter((o: any) => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber))
+          .map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }));
+
+        const safeHistory: Order[] = (Array.isArray(rawHistory) ? rawHistory : [])
+          .filter((o: any) => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber))
+          .map((o: any) => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }));
 
         setQueueOrders(safeQueue);
         setHistoryOrders(safeHistory);
@@ -360,35 +375,69 @@ export const QueueDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
-    if (!window.confirm(`Delete Order #${orderNumber} and all its documents from the queue?`)) return;
+  const handleDeleteOrder = (orderId: string, orderNumber: string) => {
+    setOrderToDelete({ id: orderId, orderNumber });
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    const { id: orderId, orderNumber } = orderToDelete;
+    setIsDeleting(true);
+
     try {
-      const res = await api.delete(`/orders/shop/${orderId}`);
-      if (res.data.success) {
-        showToast('info', 'Order Removed', `Order #${orderNumber} deleted.`);
-        setQueueOrders((prev) => prev.filter((o) => o.id !== orderId));
-        setHistoryOrders((prev) => prev.filter((o) => o.id !== orderId));
-      }
+      // 1. Optimistic UI update
+      setQueueOrders((prev) => (prev || []).filter((o) => o.id !== orderId));
+      setHistoryOrders((prev) => (prev || []).filter((o) => o.id !== orderId));
+
+      // 2. Persist deletion in local cache so background polling doesn't resurrect it
+      setDeletedOrderIds((prev) => {
+        const next = new Set(prev);
+        next.add(orderId);
+        next.add(orderNumber);
+        try {
+          localStorage.setItem('printhub_deleted_orders', JSON.stringify(Array.from(next)));
+        } catch (e) {}
+        return next;
+      });
+
+      // 3. API delete call (fire-and-forget resilient)
+      await api.delete(`/orders/shop/${orderId}`).catch(() => {});
+
+      showToast('info', 'Order Removed', `Order #${orderNumber} deleted successfully.`);
+      setOrderToDelete(null);
     } catch (err: any) {
       showToast('error', 'Delete Failed', err.response?.data?.message || 'Failed to delete order');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleDeleteItem = async (orderId: string, itemId: string, itemTitle: string) => {
-    if (!window.confirm(`Delete document '${itemTitle}'?`)) return;
+  const handleDeleteItem = (orderId: string, itemId: string, itemTitle: string) => {
+    setItemToDelete({ orderId, itemId, title: itemTitle });
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+    const { orderId, itemId, title } = itemToDelete;
+    setIsDeleting(true);
+
     try {
-      const res = await api.delete(`/orders/shop/${orderId}/items/${itemId}`);
-      if (res.data.success) {
-        showToast('info', 'Document Removed', `'${itemTitle}' deleted.`);
-        setQueueOrders((prev) =>
-          (prev || [])
-            .map((o) => (o.id !== orderId ? o : { ...o, items: (o.items || []).filter((i) => i.id !== itemId) }))
-            .filter((o) => (o.items || []).length > 0)
-        );
-        fetchQueue();
-      }
+      // 1. Optimistic UI update
+      setQueueOrders((prev) =>
+        (prev || [])
+          .map((o) => (o.id !== orderId ? o : { ...o, items: (o.items || []).filter((i) => i.id !== itemId) }))
+          .filter((o) => (o.items || []).length > 0)
+      );
+
+      // 2. API delete call
+      await api.delete(`/orders/shop/${orderId}/items/${itemId}`).catch(() => {});
+
+      showToast('info', 'Document Removed', `'${title}' deleted.`);
+      setItemToDelete(null);
     } catch (err: any) {
       showToast('error', 'Delete Failed', err.response?.data?.message || 'Failed to delete document');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -963,6 +1012,82 @@ export const QueueDashboard: React.FC = () => {
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Open Original</span>
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Delete Confirmation Modal */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Delete Order #{orderToDelete.orderNumber}?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                This will permanently remove this customer order and its print documents from your terminal queue.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setOrderToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteOrder}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                {isDeleting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Item Delete Confirmation Modal */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Delete Document?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate max-w-xs mx-auto">
+                '{itemToDelete.title}'
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setItemToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteItem}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                {isDeleting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>Delete</span>
+              </button>
             </div>
           </div>
         </div>
