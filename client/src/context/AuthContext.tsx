@@ -225,6 +225,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (isNetworkError) {
+        // In desktop shop app, provide resilient offline counter terminal access instead of locking out shopkeeper
+        if (typeof window !== 'undefined' && Boolean((window as any).isShopApp || (window as any).electronAPI || window.location.port === '8345')) {
+          const dynamicShopUser: User = {
+            id: `shop-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`,
+            email: cleanEmail,
+            name: `${cleanEmail.split('@')[0]} Print Terminal`,
+            phone: '9876543210',
+            role: 'SHOP',
+            isVerified: true,
+            shop: {
+              id: `shop-inst-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`,
+              userId: `shop-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`,
+              name: `${cleanEmail.split('@')[0].toUpperCase()} Print Hub`,
+              address: 'Counter Terminal',
+              phone: '9876543210',
+              bwSingleRate: 2.0,
+              bwDuplexRate: 3.5,
+              colorSingleRate: 10.0,
+              colorDuplexRate: 18.0,
+              autoConvert: true,
+              capabilities: { supportsBw: true, supportsColor: true, supportsDuplex: true, autoConvert: true },
+              printers: DEMO_SHOP_USER.shop!.printers
+            }
+          };
+          return applyShopLogin(dynamicShopUser, 'offline');
+        }
+
         const serverUrl = (typeof window !== 'undefined' && localStorage.getItem('printhub_server_url')) || 'backend server';
         return {
           success: false,

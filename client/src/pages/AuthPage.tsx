@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Printer,
@@ -40,10 +40,23 @@ export const AuthPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { login, loginAsDemo, register } = useAuth();
+  const { user, isAuthenticated, login, loginAsDemo, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+
+  // If already authenticated, automatically redirect to appropriate dashboard
+  useEffect(() => {
+    const storedUserRaw = typeof window !== 'undefined'
+      ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
+      : null;
+    const isAuthed = isAuthenticated || Boolean(storedUserRaw);
+
+    if (isAuthed) {
+      const redirectPath = isShopApp ? '/shop' : '/dashboard';
+      navigate(redirectPath, { replace: true });
+    }
+  }, [isAuthenticated, isShopApp, navigate]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +68,7 @@ export const AuthPage: React.FC = () => {
       if (res.success) {
         showToast('success', 'Welcome Back!', 'Logged in successfully.');
         const redirectPath = isShopApp ? '/shop' : '/dashboard';
-        navigate(redirectPath);
+        navigate(redirectPath, { replace: true });
       } else if (res.requiresOtp) {
         setOtpEmail(email);
         setDebugOtp(res.debugOtp);
@@ -117,7 +130,7 @@ export const AuthPage: React.FC = () => {
     setErrorMessage('');
     loginAsDemo('CUSTOMER');
     showToast('success', 'Demo Customer Active', 'Logged in as Demo Student Customer (₹100 Wallet Credit).');
-    navigate('/dashboard');
+    navigate('/dashboard', { replace: true });
   };
 
   const fillDemoShop = () => {
@@ -127,7 +140,7 @@ export const AuthPage: React.FC = () => {
     setErrorMessage('');
     loginAsDemo('SHOP');
     showToast('success', 'Demo Shop Active', 'Logged in as Demo Shopkeeper (PrintHub Metro Central).');
-    navigate('/shop');
+    navigate('/shop', { replace: true });
   };
 
   return (

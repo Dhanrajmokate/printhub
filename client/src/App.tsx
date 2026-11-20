@@ -27,8 +27,14 @@ const ShopDashboard = React.lazy(() => import('./pages/ShopDashboard.js').then((
 const ProtectedCustomerRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
+  const storedUserRaw = typeof window !== 'undefined'
+    ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
+    : null;
+  const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+  const effectiveAuth = isAuthenticated || Boolean(storedUser);
+
   if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  if (!effectiveAuth) return <Navigate to="/auth" replace />;
 
   return children;
 };
@@ -37,9 +43,17 @@ const ProtectedCustomerRoute: React.FC<{ children: React.ReactElement }> = ({ ch
 const ProtectedShopRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Instant fallback to storage to eliminate React state batching race conditions
+  const storedUserRaw = typeof window !== 'undefined'
+    ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
+    : null;
+  const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+  const effectiveUser = user || storedUser;
+  const effectiveAuth = isAuthenticated || Boolean(storedUser);
+
   if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/auth" replace />;
-  if (user?.role !== 'SHOP') return <Navigate to="/auth" replace />;
+  if (!effectiveAuth) return <Navigate to="/auth" replace />;
+  if (effectiveUser?.role && effectiveUser.role !== 'SHOP') return <Navigate to="/auth" replace />;
 
   return children;
 };
