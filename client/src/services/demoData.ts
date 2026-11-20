@@ -84,8 +84,69 @@ export const DEMO_SHOP_USER: User = {
   }
 };
 
+export const DEMO_DHANRAJ_SHOP_USER: User = {
+  id: 'dhanraj-shop-user-id',
+  email: 'dhanraj@printhub.com',
+  name: 'Dhanraj Gopal Mokate',
+  phone: '9876543213',
+  role: 'SHOP',
+  isVerified: true,
+  shop: {
+    id: 'demo-shop-4',
+    userId: 'dhanraj-shop-user-id',
+    name: 'Dhanraj Station Print Shop',
+    address: 'Railway Station Road, Commercial Complex, Shop #11',
+    phone: '9876543213',
+    latitude: 19.8940,
+    longitude: 75.3580,
+    upiId: 'dhanraj@upi',
+    upiName: 'Dhanraj Station Print',
+    bwSingleRate: 2.0,
+    bwDuplexRate: 3.5,
+    colorSingleRate: 12.0,
+    colorDuplexRate: 20.0,
+    autoConvert: true,
+    capabilities: {
+      supportsBw: true,
+      supportsColor: true,
+      supportsDuplex: true,
+      autoConvert: true
+    },
+    printers: [
+      {
+        id: 'demo-printer-5',
+        shopId: 'demo-shop-4',
+        name: 'Dhanraj Station Heavy-Duty Laser 8001',
+        port: 8001,
+        type: 'BW',
+        supportsDuplex: true,
+        isOnline: true,
+        autoConvert: true,
+        healthStatus: { isOnline: true, statusText: 'Online & Ready (Port 8001)' }
+      },
+      {
+        id: 'demo-printer-6',
+        shopId: 'demo-shop-4',
+        name: 'Dhanraj Pro Color Studio 8002',
+        port: 8002,
+        type: 'COLOR',
+        supportsDuplex: true,
+        isOnline: true,
+        autoConvert: true,
+        healthStatus: { isOnline: true, statusText: 'Online & Ready (Port 8002)' }
+      }
+    ],
+    stats: {
+      totalOrders: 114,
+      completedOrders: 110,
+      rating: 4.9
+    }
+  }
+};
+
 export const DEMO_SHOPS: Shop[] = [
   DEMO_SHOP_USER.shop!,
+  DEMO_DHANRAJ_SHOP_USER.shop!,
   {
     id: 'demo-shop-2',
     name: 'PrintHub Central Library Annex',

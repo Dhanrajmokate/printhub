@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { api } from '../services/api.js';
 import { User } from '../types/index.js';
 import { sseClient } from '../services/sse.js';
-import { DEMO_CUSTOMER_USER, DEMO_SHOP_USER, isDemoSession } from '../services/demoData.js';
+import { DEMO_CUSTOMER_USER, DEMO_SHOP_USER, DEMO_DHANRAJ_SHOP_USER, isDemoSession } from '../services/demoData.js';
 
 interface AuthContextType {
   user: User | null;
@@ -132,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = (email || '').trim().toLowerCase();
     const isDemoCustomer = cleanEmail === 'customer@printhub.com' && password === 'password123';
     const isDemoShop = cleanEmail === 'shop@printhub.com' && password === 'password123';
+    const isDemoDhanraj = (cleanEmail === 'dhanraj@printhub.com' || cleanEmail === 'dhanraj@gmail.com') && password === 'password123';
 
     // Demo accounts log in immediately without network vulnerability
     if (isDemoCustomer) {
@@ -139,6 +140,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     if (isDemoShop) {
       return loginAsDemo('SHOP');
+    }
+    if (isDemoDhanraj) {
+      const demoToken = 'demo-jwt-token-dhanraj';
+      setToken(demoToken);
+      setUser(DEMO_DHANRAJ_SHOP_USER);
+      sessionStorage.setItem('printhub_token', demoToken);
+      sessionStorage.setItem('printhub_user', JSON.stringify(DEMO_DHANRAJ_SHOP_USER));
+      localStorage.setItem('printhub_token', demoToken);
+      localStorage.setItem('printhub_user', JSON.stringify(DEMO_DHANRAJ_SHOP_USER));
+      if (typeof window !== 'undefined' && (window as any).electronAPI?.saveConfig) {
+        (window as any).electronAPI.getConfig().then((cfg: any) => {
+          (window as any).electronAPI.saveConfig({ ...cfg, shopToken: demoToken, shopUser: DEMO_DHANRAJ_SHOP_USER });
+        }).catch(() => {});
+      }
+      return { success: true };
     }
 
     try {

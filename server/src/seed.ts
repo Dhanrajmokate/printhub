@@ -157,6 +157,64 @@ async function main() {
     console.log('[Seed] Created second demo shop: campus@printhub.com / password123');
   }
 
+  // 4. Create Demo Shop 3 (Dhanraj Station Print Shop)
+  const dhanrajEmail = 'dhanraj@printhub.com';
+  let dhanrajUser = await prisma.user.findUnique({ where: { email: dhanrajEmail } });
+
+  if (!dhanrajUser) {
+    dhanrajUser = await prisma.user.create({
+      data: {
+        email: dhanrajEmail,
+        password: hashedPassword,
+        name: 'Dhanraj Gopal Mokate',
+        phone: '9876543213',
+        role: 'SHOP',
+        isVerified: true
+      }
+    });
+
+    const shop3 = await prisma.shop.create({
+      data: {
+        userId: dhanrajUser.id,
+        name: 'Dhanraj Station Print Shop',
+        address: 'Railway Station Road, Commercial Complex, Shop #11',
+        phone: '9876543213',
+        bwSingleRate: 2.0,
+        bwDuplexRate: 3.5,
+        colorSingleRate: 12.0,
+        colorDuplexRate: 20.0,
+        upiId: 'dhanraj@upi',
+        upiName: 'Dhanraj Station Print',
+        autoConvert: true
+      }
+    });
+
+    await prisma.printer.createMany({
+      data: [
+        {
+          shopId: shop3.id,
+          name: 'Dhanraj Heavy-Duty Laser 8001',
+          port: 8001,
+          type: 'BW',
+          supportsDuplex: true,
+          isOnline: true,
+          autoConvert: true
+        },
+        {
+          shopId: shop3.id,
+          name: 'Dhanraj Studio Color Jet 8002',
+          port: 8002,
+          type: 'COLOR',
+          supportsDuplex: true,
+          isOnline: true,
+          autoConvert: true
+        }
+      ]
+    });
+
+    console.log('[Seed] Created third shop: dhanraj@printhub.com / password123');
+  }
+
   console.log('[Seed] Database seeding completed successfully!');
 }
 
