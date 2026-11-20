@@ -1,14 +1,30 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Printer, Mail, Lock, User as UserIcon, Phone, Store, ArrowRight, ShieldCheck, Zap, Settings, Globe } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import {
+  Printer,
+  Mail,
+  Lock,
+  User as UserIcon,
+  Phone,
+  Store,
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  Settings,
+  Globe,
+  Sparkles,
+  Download
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { OtpModal } from '../components/common/OtpModal.js';
 import { useToast } from '../context/ToastContext.js';
 import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
+import { isShopApp, isCustomerWeb } from '../utils/platform.js';
 
 export const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-  const [role, setRole] = useState<'CUSTOMER' | 'SHOP'>('CUSTOMER');
+  // Fixed role per platform: Shop App is always SHOP, Customer Web is always CUSTOMER
+  const role: 'CUSTOMER' | 'SHOP' = isShopApp ? 'SHOP' : 'CUSTOMER';
 
   // Form Fields
   const [email, setEmail] = useState('');
@@ -27,9 +43,9 @@ export const AuthPage: React.FC = () => {
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [currentServerUrl, setCurrentServerUrl] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('printhub_server_url') || 'http://10.105.106.56:8000';
+      return localStorage.getItem('printhub_server_url') || 'https://printhub-cloud-api.onrender.com';
     }
-    return 'http://10.105.106.56:8000';
+    return 'https://printhub-cloud-api.onrender.com';
   });
 
   const { login, loginAsDemo, register } = useAuth();
@@ -46,7 +62,7 @@ export const AuthPage: React.FC = () => {
       const res = await login(email, password);
       if (res.success) {
         showToast('success', 'Welcome Back!', 'Logged in successfully.');
-        const redirectPath = role === 'SHOP' ? '/shop' : '/dashboard';
+        const redirectPath = isShopApp ? '/shop' : '/dashboard';
         navigate(redirectPath);
       } else if (res.requiresOtp) {
         setOtpEmail(email);
@@ -74,8 +90,8 @@ export const AuthPage: React.FC = () => {
         name,
         phone,
         role,
-        shopName: role === 'SHOP' ? shopName : undefined,
-        shopAddress: role === 'SHOP' ? shopAddress : undefined
+        shopName: isShopApp ? shopName : undefined,
+        shopAddress: isShopApp ? shopAddress : undefined
       });
 
       if (res.success) {
@@ -94,14 +110,17 @@ export const AuthPage: React.FC = () => {
 
   const handleOtpSuccess = () => {
     setIsOtpOpen(false);
-    showToast('success', 'Account Verified!', role === 'CUSTOMER' ? '₹100 welcome bonus added to your wallet!' : 'Shop registered successfully.');
-    navigate(role === 'SHOP' ? '/shop' : '/dashboard');
+    showToast(
+      'success',
+      'Account Verified!',
+      isCustomerWeb ? '₹100 welcome credit added to your wallet!' : 'Shop partner terminal registered successfully.'
+    );
+    navigate(isShopApp ? '/shop' : '/dashboard');
   };
 
   const fillDemoCustomer = () => {
     setEmail('customer@printhub.com');
     setPassword('password123');
-    setRole('CUSTOMER');
     setMode('LOGIN');
     setErrorMessage('');
     loginAsDemo('CUSTOMER');
@@ -112,11 +131,10 @@ export const AuthPage: React.FC = () => {
   const fillDemoShop = () => {
     setEmail('shop@printhub.com');
     setPassword('password123');
-    setRole('SHOP');
     setMode('LOGIN');
     setErrorMessage('');
     loginAsDemo('SHOP');
-    showToast('success', 'Demo Shop Active', 'Logged in as Demo Print Shopkeeper (PrintHub Metro Central).');
+    showToast('success', 'Demo Shop Active', 'Logged in as Demo Shopkeeper (PrintHub Metro Central).');
     navigate('/shop');
   };
 
@@ -126,15 +144,23 @@ export const AuthPage: React.FC = () => {
         {/* Top Header */}
         <div className="text-center space-y-1">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-indigo-500/20">
-            <Printer className="w-6 h-6" />
+            {isShopApp ? <Store className="w-6 h-6" /> : <Printer className="w-6 h-6" />}
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-            {mode === 'LOGIN' ? 'Welcome to PrintHub' : 'Create PrintHub Account'}
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+            {isShopApp
+              ? mode === 'LOGIN'
+                ? 'Shop Partner Terminal'
+                : 'Register Print Store'
+              : mode === 'LOGIN'
+              ? 'Welcome to PrintHub'
+              : 'Create Customer Account'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {mode === 'LOGIN'
-              ? 'Sign in to access your print cart, orders, and wallet'
-              : 'Register as customer for ₹100 bonus or as print shop owner'}
+            {isShopApp
+              ? 'Sign in to access order queue, spool physical printers, and track revenue'
+              : mode === 'LOGIN'
+              ? 'Sign in to access your print cart, orders, and ₹100 wallet'
+              : 'Register in seconds and receive ₹100 welcome print credit!'}
           </p>
         </div>
 
@@ -166,36 +192,37 @@ export const AuthPage: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Create Account
+            {isShopApp ? 'Register Shop' : 'Create Account (+₹100)'}
           </button>
         </div>
 
-        {/* 1-Click Demo Login Shortcuts */}
+        {/* 1-Click Demo Login Shortcut */}
         {mode === 'LOGIN' && (
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block text-center">
-              Quick 1-Click Demo Login
+              Quick 1-Click Demo Access
             </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={fillDemoCustomer}
-                disabled={isSubmitting}
-                className="py-2 px-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Zap className="w-3 h-3 text-emerald-600" />
-                <span>Customer (₹100)</span>
-              </button>
+            {isShopApp ? (
               <button
                 type="button"
                 onClick={fillDemoShop}
                 disabled={isSubmitting}
-                className="py-2 px-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 disabled:opacity-50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 disabled:opacity-50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
               >
-                <Store className="w-3 h-3 text-purple-600" />
-                <span>Shop (3001/3002)</span>
+                <Store className="w-3.5 h-3.5 text-purple-600" />
+                <span>Demo Shop Terminal (Active Printers)</span>
               </button>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={fillDemoCustomer}
+                disabled={isSubmitting}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+              >
+                <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Demo Customer Account (₹100 Wallet Credit)</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -204,7 +231,7 @@ export const AuthPage: React.FC = () => {
           <div className="flex items-center gap-1.5 truncate">
             <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
             <span className="truncate">
-              Server: <strong className="font-mono text-slate-800 dark:text-slate-200">{currentServerUrl.replace(/^https?:\/\//, '')}</strong>
+              API: <strong className="font-mono text-slate-800 dark:text-slate-200">{currentServerUrl.replace(/^https?:\/\//, '')}</strong>
             </span>
           </div>
           <button
@@ -217,63 +244,19 @@ export const AuthPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Role Selector during Registration */}
-        {mode === 'REGISTER' && (
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500">
-              Account Role
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setRole('CUSTOMER')}
-                className={`p-3 rounded-2xl border-2 text-left transition-all ${
-                  role === 'CUSTOMER'
-                    ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/40'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                  👤 Customer
-                </span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
-                  +₹100 Signup Credit
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRole('SHOP')}
-                className={`p-3 rounded-2xl border-2 text-left transition-all ${
-                  role === 'SHOP'
-                    ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/40'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                  🏪 Print Shop
-                </span>
-                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold block mt-0.5">
-                  Queue & Multi-Printer
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Main Form */}
-        <form onSubmit={mode === 'LOGIN' ? handleLoginSubmit : handleRegisterSubmit} className="space-y-4">
+        <form onSubmit={mode === 'LOGIN' ? handleLoginSubmit : handleRegisterSubmit} className="space-y-3.5">
           {mode === 'REGISTER' && (
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                Full Name
+                {isShopApp ? 'Owner Full Name' : 'Full Name'}
               </label>
               <div className="relative">
                 <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Alex Johnson"
+                  placeholder={isShopApp ? 'e.g. Ramesh Sharma' : 'e.g. Alex Johnson'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"
@@ -319,12 +302,13 @@ export const AuthPage: React.FC = () => {
           {mode === 'REGISTER' && (
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                Phone Number
+                Contact Phone
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
+                  required
                   placeholder="e.g. 9876543210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -334,7 +318,8 @@ export const AuthPage: React.FC = () => {
             </div>
           )}
 
-          {mode === 'REGISTER' && role === 'SHOP' && (
+          {/* Shop Partner Registration Fields (Shown ONLY in Shop Partner App) */}
+          {mode === 'REGISTER' && isShopApp && (
             <>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
@@ -343,7 +328,7 @@ export const AuthPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Apex QuickPrint Hub"
+                  placeholder="e.g. Apex Xerox & Print Hub"
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"
@@ -352,7 +337,7 @@ export const AuthPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                  Shop Address
+                  Shop Address & Locality
                 </label>
                 <input
                   type="text"
@@ -387,6 +372,19 @@ export const AuthPage: React.FC = () => {
             )}
           </button>
         </form>
+
+        {/* Footer Link to Shop Partner Portal on Website */}
+        {isCustomerWeb && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+            <Link
+              to="/shop"
+              className="inline-flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline font-bold"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Are you a print shop owner? Visit the Partner Portal (.exe)</span>
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* OTP Verification Modal */}

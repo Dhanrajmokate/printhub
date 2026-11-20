@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Printer, ShoppingBag, Sun, Moon, Wallet, Menu, X, LogOut, User, LayoutDashboard, Clock, Store, Sparkles, ChevronRight, Download, Monitor } from 'lucide-react';
+import {
+  Printer,
+  ShoppingBag,
+  Sun,
+  Moon,
+  Wallet,
+  Menu,
+  X,
+  LogOut,
+  Store,
+  ChevronRight,
+  Download,
+  ShieldCheck,
+  Radio
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useCart } from '../../context/CartContext.js';
 import { DESKTOP_DOWNLOAD_CONFIG } from '../../config/downloadConfig.js';
+import { isShopApp, isCustomerWeb } from '../../utils/platform.js';
 
 interface NavbarProps {
   onOpenCart?: () => void;
@@ -33,100 +48,115 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
     <>
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Left: Mobile Hamburger & Brand Logo */}
+          {/* Left: Brand Logo & Mobile Menu Trigger */}
           <div className="flex items-center gap-3">
-            {/* Hamburger Button (Left on Mobile) */}
-            <button
-              type="button"
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              aria-label="Open mobile menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            {/* Hamburger Button (Visible on mobile for customer web) */}
+            {isCustomerWeb && (
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Open mobile menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
 
             {/* Brand Logo */}
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <Link to={isShopApp ? '/shop' : '/'} className="flex items-center gap-2.5 group">
               <div className="w-10 h-10 rounded-2xl bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
                 <Printer className="w-5 h-5" />
               </div>
               <div>
                 <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1">
                   Print<span className="text-indigo-600 dark:text-indigo-400">Hub</span>
+                  {isShopApp && (
+                    <span className="ml-1 text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      Partner
+                    </span>
+                  )}
                 </span>
                 <span className="hidden sm:block text-[9px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500 -mt-1">
-                  Cloud Print & Collect
+                  {isShopApp ? 'Store Hardware Spooler' : 'Cloud Print & Collect'}
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1">
-            <Link
-              to="/"
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                location.pathname === '/'
-                  ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              Home
-            </Link>
-
-            {isAuthenticated && isCustomer && (
-              <>
-                <Link
-                  to="/dashboard"
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    location.pathname === '/dashboard'
-                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Upload & Print
-                </Link>
-                <Link
-                  to="/orders"
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    location.pathname === '/orders'
-                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  My Orders & Receipts
-                </Link>
-              </>
-            )}
-
-            {isAuthenticated && isShop && (
+          {/* Center / Navigation Links */}
+          {isShopApp ? (
+            /* =========================================================================
+               SHOP PARTNER APP NAVIGATION (Strictly for Shopkeepers & Hardware Spooler)
+               ========================================================================= */
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
+                <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                <span>Hardware Spooler Connected</span>
+              </div>
+              {user?.shop && (
+                <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                  {user.shop.name}
+                </span>
+              )}
+            </div>
+          ) : (
+            /* =========================================================================
+               CUSTOMER WEBSITE NAVIGATION (Strictly for Customers & Ordering)
+               ========================================================================= */
+            <nav className="hidden lg:flex items-center gap-1">
               <Link
-                to="/shop"
+                to="/"
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                  location.pathname === '/shop'
+                  location.pathname === '/'
                     ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                Shop Dashboard & Queue
+                Home
               </Link>
-            )}
 
-            {/* Desktop App Download Button */}
-            <a
-              href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
-              download={DESKTOP_DOWNLOAD_CONFIG.fileName}
-              target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
-              rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
-              className="ml-2 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 shadow-sm"
-              title={`Download Desktop App for Windows (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
-            >
-              <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>Desktop App (.exe)</span>
-            </a>
-          </nav>
+              {isAuthenticated && (
+                <>
+                  <Link
+                    to="/dashboard"
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                      location.pathname === '/dashboard'
+                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Upload & Print
+                  </Link>
+                  <Link
+                    to="/orders"
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                      location.pathname === '/orders'
+                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    My Orders & Receipts
+                  </Link>
+                </>
+              )}
 
-          {/* Right: Wallet Badge, Cart, Dark Mode Toggle, Profile/Auth */}
+              {/* Shop Partner Gateway Link */}
+              <Link
+                to="/shop"
+                className={`ml-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  location.pathname === '/shop'
+                    ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
+                    : 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 border border-purple-200 dark:border-purple-800'
+                }`}
+                title="Print shop owner? Download the counter desktop app"
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Shop Partner App</span>
+              </Link>
+            </nav>
+          )}
+
+          {/* Right: Controls & Auth */}
           <div className="flex items-center gap-2.5">
             {/* Theme Toggle */}
             <button
@@ -140,8 +170,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
 
             {isAuthenticated ? (
               <>
-                {/* Customer: Wallet Badge */}
-                {isCustomer && (
+                {/* Customer Website Only: Wallet Badge */}
+                {isCustomerWeb && (
                   <button
                     type="button"
                     onClick={onOpenWallet}
@@ -154,8 +184,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   </button>
                 )}
 
-                {/* Customer: Cart Drawer Trigger */}
-                {isCustomer && onOpenCart && (
+                {/* Customer Website Only: Cart Drawer Trigger */}
+                {isCustomerWeb && onOpenCart && (
                   <button
                     type="button"
                     onClick={onOpenCart}
@@ -171,22 +201,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   </button>
                 )}
 
-                {/* Shop Badge */}
-                {isShop && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold">
-                    <Store className="w-3.5 h-3.5" />
-                    <span>Shop Owner</span>
-                  </span>
-                )}
-
-                {/* User Dropdown / Logout Button */}
+                {/* User Info & Logout */}
                 <div className="flex items-center gap-2 pl-1">
                   <div className="hidden md:flex flex-col text-right">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[120px]">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
                       {user?.name}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 capitalize">
-                      {user?.role.toLowerCase()}
+                      {isShopApp ? 'Store Partner' : 'Customer'}
                     </span>
                   </div>
 
@@ -206,7 +228,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   to="/auth"
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all"
                 >
-                  Sign In / Register
+                  {isShopApp ? 'Shop Partner Login' : 'Sign In / Register'}
                 </Link>
               </div>
             )}
@@ -214,8 +236,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
         </div>
       </header>
 
-      {/* Mobile Drawer (Sliding from Left as specified: 'hamburger menu left') */}
-      {isMobileMenuOpen && (
+      {/* Mobile Drawer (Only for Customer Website) */}
+      {isCustomerWeb && isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl p-6 flex flex-col justify-between animate-in slide-in-from-left duration-200 overflow-y-auto">
             <div className="space-y-6">
@@ -240,14 +262,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
                   <p className="text-xs font-bold text-slate-900 dark:text-white">{user?.name}</p>
                   <p className="text-[11px] text-slate-400">{user?.email}</p>
-                  {isCustomer && (
-                    <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Wallet:</span>
-                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        ₹{user?.wallet?.balance?.toFixed(2) || '0.00'}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Wallet:</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      ₹{user?.wallet?.balance?.toFixed(2) || '0.00'}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -262,7 +282,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </Link>
 
-                {isAuthenticated && isCustomer && (
+                {isAuthenticated && (
                   <>
                     <Link
                       to="/dashboard"
@@ -284,31 +304,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   </>
                 )}
 
-                {isAuthenticated && isShop && (
-                  <Link
-                    to="/shop"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <span>Shop Dashboard & Queue</span>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </Link>
-                )}
-                {/* Desktop App Download Link */}
-                <a
-                  href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
-                  download={DESKTOP_DOWNLOAD_CONFIG.fileName}
-                  target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
-                  rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+                {/* Shop Partner Gateway Link */}
+                <Link
+                  to="/shop"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/60 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span>Download Desktop App (.exe)</span>
+                    <Store className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Shop Partner Portal (.exe)</span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-indigo-400" />
-                </a>
+                  <ChevronRight className="w-4 h-4 text-purple-400" />
+                </Link>
               </nav>
             </div>
 

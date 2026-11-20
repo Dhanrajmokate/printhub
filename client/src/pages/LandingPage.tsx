@@ -53,10 +53,10 @@ export const LandingPage: React.FC = () => {
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           {isAuthenticated ? (
             <Link
-              to={user?.role === 'SHOP' ? '/shop' : '/dashboard'}
+              to="/dashboard"
               className="px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center gap-2"
             >
-              <span>Go to {user?.role === 'SHOP' ? 'Shop Dashboard' : 'Upload & Print'}</span>
+              <span>Upload & Print Documents</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           ) : (
@@ -65,40 +65,27 @@ export const LandingPage: React.FC = () => {
                 to="/auth"
                 className="px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center gap-2"
               >
-                <span>Get Started Free</span>
+                <span>Upload & Print Now</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
-              {/* 1-Click Quick Demo Switchers */}
+              {/* 1-Click Customer Demo */}
               <button
                 type="button"
                 onClick={handleDemoCustomerLogin}
-                className="px-5 py-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                className="px-6 py-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
               >
                 <Zap className="w-4 h-4 text-emerald-600" />
-                <span>Demo Customer (₹100)</span>
+                <span>Demo Customer Account (₹100 Credit)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleDemoShopLogin}
-                className="px-5 py-4 rounded-2xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+              <Link
+                to="/shop"
+                className="px-6 py-4 rounded-2xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
               >
                 <Store className="w-4 h-4 text-purple-600" />
-                <span>Demo Shop (8001/8002)</span>
-              </button>
-
-              <a
-                href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
-                download={DESKTOP_DOWNLOAD_CONFIG.fileName}
-                target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
-                rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="px-5 py-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-                title={`Download Standalone Windows Desktop App (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
-              >
-                <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Download Desktop App (.exe)</span>
-              </a>
+                <span>Shopkeeper Partner Portal (.exe)</span>
+              </Link>
             </>
           )}
         </div>
