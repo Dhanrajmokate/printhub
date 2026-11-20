@@ -19,9 +19,11 @@ import { useAuth } from '../context/AuthContext.js';
 import { OtpModal } from '../components/common/OtpModal.js';
 import { useToast } from '../context/ToastContext.js';
 import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
-import { isShopApp, isCustomerWeb } from '../utils/platform.js';
+import { useIsShopApp } from '../utils/platform.js';
 
 export const AuthPage: React.FC = () => {
+  const isShopApp = useIsShopApp();
+  const isCustomerWeb = !isShopApp;
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   // Fixed role per platform: Shop App is always SHOP, Customer Web is always CUSTOMER
   const role: 'CUSTOMER' | 'SHOP' = isShopApp ? 'SHOP' : 'CUSTOMER';

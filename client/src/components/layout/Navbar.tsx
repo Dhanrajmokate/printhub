@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useCart } from '../../context/CartContext.js';
 import { DESKTOP_DOWNLOAD_CONFIG } from '../../config/downloadConfig.js';
-import { isShopApp, isCustomerWeb } from '../../utils/platform.js';
+import { useIsShopApp } from '../../utils/platform.js';
 
 interface NavbarProps {
   onOpenCart?: () => void;
@@ -27,6 +27,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
+  const isShopApp = useIsShopApp();
+  const isCustomerWeb = !isShopApp;
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { items } = useCart();

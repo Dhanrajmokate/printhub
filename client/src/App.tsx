@@ -16,7 +16,7 @@ import { AuthPage } from './pages/AuthPage.js';
 import { ShopPartnerWebPage } from './pages/ShopPartnerWebPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.js';
-import { isShopApp, isCustomerWeb } from './utils/platform.js';
+import { useIsShopApp } from './utils/platform.js';
 
 // Lazy-load heavy dashboard bundles for lightning-fast initial page load
 const CustomerDashboard = React.lazy(() => import('./pages/CustomerDashboard.js').then((m) => ({ default: m.CustomerDashboard })));
@@ -45,6 +45,8 @@ const ProtectedShopRoute: React.FC<{ children: React.ReactElement }> = ({ childr
 };
 
 const MainAppContent: React.FC = () => {
+  const isShopApp = useIsShopApp();
+  const isCustomerWeb = !isShopApp;
   const { isCartOpen, openCart, closeCart } = useCart();
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);

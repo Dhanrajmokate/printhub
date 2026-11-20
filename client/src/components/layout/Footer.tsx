@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Printer, Shield, Zap, Download, Store } from 'lucide-react';
 import { DESKTOP_DOWNLOAD_CONFIG } from '../../config/downloadConfig.js';
-import { isShopApp, isCustomerWeb } from '../../utils/platform.js';
+import { useIsShopApp } from '../../utils/platform.js';
 
 export const Footer: React.FC = () => {
+  const isShopApp = useIsShopApp();
   if (isShopApp) {
     return (
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm py-4 transition-colors">

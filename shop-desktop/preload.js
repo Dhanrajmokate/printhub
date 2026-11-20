@@ -1,5 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Explicitly flag this environment as the dedicated Shop Partner App
+contextBridge.exposeInMainWorld('isShopApp', true);
+contextBridge.exposeInMainWorld('appMode', 'SHOP');
+
 contextBridge.exposeInMainWorld('electronAPI', {
   getSystemPrinters: () => ipcRenderer.invoke('get-system-printers'),
   printJob: (jobData) => ipcRenderer.invoke('print-job', jobData),

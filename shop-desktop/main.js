@@ -131,7 +131,7 @@ function startInternalServer(distDir) {
       .on('listening', () => {
         internalServer = serverInstance;
         console.log(`[Embedded Web Server] Serving shop client on http://127.0.0.1:${preferredPort}`);
-        resolve(`http://127.0.0.1:${preferredPort}/shop`);
+        resolve(`http://127.0.0.1:${preferredPort}/shop?app=shop`);
       })
       .on('error', (err) => {
         console.warn(`[Embedded Web Server] Preferred port ${preferredPort} in use or failed (${err.code}). Falling back to dynamic port...`);
@@ -139,7 +139,7 @@ function startInternalServer(distDir) {
           internalServer = fallbackServer;
           const fallbackPort = fallbackServer.address().port;
           console.log(`[Embedded Web Server] Serving shop client on fallback http://127.0.0.1:${fallbackPort}`);
-          resolve(`http://127.0.0.1:${fallbackPort}/shop`);
+          resolve(`http://127.0.0.1:${fallbackPort}/shop?app=shop`);
         });
       });
   });
@@ -164,6 +164,10 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
+
+  // Stamp custom Shop Partner App User-Agent signature
+  const defaultUA = mainWindow.webContents.getUserAgent();
+  mainWindow.webContents.setUserAgent(`${defaultUA} PrintHubShopPartnerApp/1.0`);
 
   // Pre-warm the backend immediately in the background so it's awake
   try {

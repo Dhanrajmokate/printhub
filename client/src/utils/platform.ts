@@ -1,26 +1,78 @@
+import { useState, useEffect } from 'react';
+
 /**
  * Platform & Environment Detection Utility
- * Differentiates between the Shop Partner Desktop/Mobile App (Electron / Native)
- * and the Customer Web Application (Vercel / Browser).
+ * Robustly detects whether the runtime environment is the Shop Partner Desktop / Mobile App
+ * or the Customer Website.
  */
 
-export const isShopApp: boolean =
-  typeof window !== 'undefined' && Boolean((window as any).electronAPI);
+export function checkIsShopApp(): boolean {
+  if (typeof window === 'undefined') return false;
 
-export const isCustomerWeb: boolean = !isShopApp;
+  // 1. Explicitly exposed Electron / Preload flags
+  if ((window as any).isShopApp === true) return true;
+  if ((window as any).appMode === 'SHOP') return true;
+  if (Boolean((window as any).electronAPI)) return true;
 
-export interface PlatformCapabilities {
-  hasHardwarePrinters: boolean;
-  supportsSilentAutoPrint: boolean;
-  isDesktopTerminal: boolean;
-  isWebBrowser: boolean;
+  // 2. Custom or Standard User-Agent check
+  const ua = (navigator.userAgent || '').toLowerCase();
+  if (ua.includes('printhubshoppartnerapp') || ua.includes('electron')) return true;
+
+  // 3. Local desktop embedded server (Port 8345)
+  if (window.location.port === '8345') return true;
+
+  // 4. Native App protocols (Capacitor on Android or local file wrapper)
+  if (
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    Boolean((window as any).Capacitor)
+  ) {
+    return true;
+  }
+
+  // 5. Query parameters or pathname
+  const search = window.location.search || '';
+  if (search.includes('app=shop') || search.includes('mode=shop') || search.includes('role=shop')) {
+    return true;
+  }
+
+  // 6. Explicit localStorage persistence
+  try {
+    if (localStorage.getItem('printhub_app_mode') === 'SHOP') return true;
+  } catch (e) {
+    // Ignore storage restrictions
+  }
+
+  return false;
 }
 
-export function getPlatformCapabilities(): PlatformCapabilities {
-  return {
-    hasHardwarePrinters: isShopApp,
-    supportsSilentAutoPrint: isShopApp,
-    isDesktopTerminal: isShopApp,
-    isWebBrowser: isCustomerWeb
-  };
+// Initial evaluation
+export const isShopApp: boolean = checkIsShopApp();
+export const isCustomerWeb: boolean = !isShopApp;
+
+/**
+ * React Hook for dynamic re-validation of the platform mode.
+ * Ensures that if preload bridges expose APIs shortly after module evaluation,
+ * components immediately update their UI.
+ */
+export function useIsShopApp(): boolean {
+  const [isShop, setIsShop] = useState<boolean>(() => checkIsShopApp());
+
+  useEffect(() => {
+    // Re-check after window has loaded all preloads and properties
+    const current = checkIsShopApp();
+    if (current !== isShop) {
+      setIsShop(current);
+    }
+  }, [isShop]);
+
+  return isShop;
+}
+
+export function setAppModePreference(mode: 'SHOP' | 'CUSTOMER') {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('printhub_app_mode', mode);
+    } catch (e) {}
+  }
 }
