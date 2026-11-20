@@ -10,15 +10,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
-  Settings,
-  Globe,
   Sparkles,
   Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { OtpModal } from '../components/common/OtpModal.js';
 import { useToast } from '../context/ToastContext.js';
-import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
 import { useIsShopApp } from '../utils/platform.js';
 
 export const AuthPage: React.FC = () => {
@@ -42,13 +39,6 @@ export const AuthPage: React.FC = () => {
   const [debugOtp, setDebugOtp] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [currentServerUrl, setCurrentServerUrl] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('printhub_server_url') || 'https://printhub-cloud-api.onrender.com';
-    }
-    return 'https://printhub-cloud-api.onrender.com';
-  });
 
   const { login, loginAsDemo, register } = useAuth();
   const navigate = useNavigate();
@@ -228,24 +218,6 @@ export const AuthPage: React.FC = () => {
           </div>
         )}
 
-        {/* Backend Connection Indicator & Server Settings */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-1.5 truncate">
-            <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-            <span className="truncate">
-              API: <strong className="font-mono text-slate-800 dark:text-slate-200">{currentServerUrl.replace(/^https?:\/\//, '')}</strong>
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsServerModalOpen(true)}
-            className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-semibold shrink-0 ml-2"
-          >
-            <Settings className="w-3 h-3" />
-            <span>Config</span>
-          </button>
-        </div>
-
         {/* Main Form */}
         <form onSubmit={mode === 'LOGIN' ? handleLoginSubmit : handleRegisterSubmit} className="space-y-3.5">
           {mode === 'REGISTER' && (
@@ -396,17 +368,6 @@ export const AuthPage: React.FC = () => {
         debugOtp={debugOtp}
         onSuccess={handleOtpSuccess}
         onCancel={() => setIsOtpOpen(false)}
-      />
-
-      {/* Server Configuration Modal */}
-      <ServerConfigModal
-        isOpen={isServerModalOpen}
-        onClose={() => setIsServerModalOpen(false)}
-        currentUrl={currentServerUrl}
-        onUrlUpdated={(newUrl) => {
-          setCurrentServerUrl(newUrl);
-          showToast('success', 'Server Updated', `Active API URL set to ${newUrl}`);
-        }}
       />
     </div>
   );

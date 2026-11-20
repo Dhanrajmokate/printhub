@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Store, Printer, BarChart3, Settings, Clock, Sparkles, MapPin, Phone, RefreshCw, Wallet, Download, Zap, FolderOpen, Monitor, Server } from 'lucide-react';
+import { Store, Printer, BarChart3, Settings, Clock, Sparkles, MapPin, Phone, RefreshCw, Wallet, Download, Zap, FolderOpen, Monitor } from 'lucide-react';
 import { QueueDashboard } from '../components/shop/QueueDashboard.js';
 import { PrinterManager } from '../components/shop/PrinterManager.js';
 import { AnalyticsDashboard } from '../components/shop/AnalyticsDashboard.js';
 import { ShopWalletDashboard } from '../components/shop/ShopWalletDashboard.js';
 import { ShopSettingsModal } from '../components/shop/ShopSettingsModal.js';
-import { ServerConfigModal } from '../components/shop/ServerConfigModal.js';
 import { ErrorBoundary } from '../components/common/ErrorBoundary.js';
 import { useAuth } from '../context/AuthContext.js';
 import { DESKTOP_DOWNLOAD_CONFIG } from '../config/downloadConfig.js';
@@ -16,26 +15,17 @@ export const ShopDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'QUEUE' | 'PRINTERS' | 'ANALYTICS' | 'WALLET'>('QUEUE');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [currentServerUrl, setCurrentServerUrl] = useState('http://localhost:8000');
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const [autoPrint, setAutoPrint] = useState(false);
   const [hasPhysicalPrinter, setHasPhysicalPrinter] = useState<boolean | null>(null);
   const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem('printhub_server_url') || 'http://localhost:8000';
-    setCurrentServerUrl(savedUrl);
     if (isElectron) {
       if (window.electronAPI?.getConfig) {
         window.electronAPI.getConfig().then((cfg) => {
-          if (cfg) {
-            if (typeof cfg.autoPrint === 'boolean') {
-              setAutoPrint(cfg.autoPrint);
-            }
-            if (cfg.backendUrl) {
-              setCurrentServerUrl(cfg.backendUrl);
-            }
+          if (cfg && typeof cfg.autoPrint === 'boolean') {
+            setAutoPrint(cfg.autoPrint);
           }
         });
       }
@@ -141,43 +131,19 @@ export const ShopDashboard: React.FC = () => {
                 <FolderOpen className="w-4 h-4 text-slate-400" />
                 <span>Proofs</span>
               </button>
-
-              {/* Central Server Connection Config */}
-              <button
-                type="button"
-                onClick={() => setIsServerModalOpen(true)}
-                className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
-                title="Configure Central Backend Server Connection (Localhost, Wi-Fi IP, or Cloud)"
-              >
-                <Server className="w-4 h-4 text-indigo-400" />
-                <span className="font-mono text-[11px] text-indigo-300 max-w-[120px] truncate">
-                  {currentServerUrl.replace(/^https?:\/\//, '')}
-                </span>
-              </button>
             </>
           ) : (
-            <>
-              <a
-                href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
-                download={DESKTOP_DOWNLOAD_CONFIG.fileName}
-                target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
-                rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/25"
-                title={`Download the standalone Windows Desktop App (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Desktop App (.exe)</span>
-              </a>
-
-              <a
-                href="/start-printer-agent.bat"
-                download="start-printer-agent.bat"
-                className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
-                title="Alternative lightweight batch script agent"
-              >
-                <span>Agent (.bat)</span>
-              </a>
-            </>
+            <a
+              href={DESKTOP_DOWNLOAD_CONFIG.downloadUrl}
+              download={DESKTOP_DOWNLOAD_CONFIG.fileName}
+              target={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? '_blank' : undefined}
+              rel={DESKTOP_DOWNLOAD_CONFIG.downloadUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+              className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/25"
+              title={`Download the standalone Windows Desktop App (${DESKTOP_DOWNLOAD_CONFIG.fileSize})`}
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Desktop App (.exe)</span>
+            </a>
           )}
 
           <button
@@ -294,14 +260,6 @@ export const ShopDashboard: React.FC = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSaved={() => {}}
-      />
-
-      {/* Central Server Config Modal */}
-      <ServerConfigModal
-        isOpen={isServerModalOpen}
-        onClose={() => setIsServerModalOpen(false)}
-        currentUrl={currentServerUrl}
-        onUrlUpdated={(newUrl) => setCurrentServerUrl(newUrl)}
       />
     </div>
   );

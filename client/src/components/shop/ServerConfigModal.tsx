@@ -15,14 +15,14 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
   currentUrl,
   onUrlUpdated
 }) => {
-  const [serverUrl, setServerUrl] = useState(currentUrl || 'http://localhost:8000');
+  const [serverUrl, setServerUrl] = useState(currentUrl || 'https://printhub-cloud-api.onrender.com');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setServerUrl(currentUrl || 'http://localhost:8000');
+      setServerUrl(currentUrl || 'https://printhub-cloud-api.onrender.com');
       setTestResult(null);
     }
   }, [isOpen, currentUrl]);
@@ -175,22 +175,6 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setServerUrl('http://localhost:8000');
-                  setTestResult(null);
-                }}
-                className="p-3 rounded-2xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 text-left flex items-start gap-2.5 transition-all"
-              >
-                <Laptop className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold text-white">Local Development</div>
-                  <div className="text-[11px] text-slate-400 font-mono">http://localhost:8000</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Same laptop development</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
                   setServerUrl('https://printhub-cloud-api.onrender.com');
                   setTestResult(null);
                 }}
@@ -200,36 +184,26 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
                 <div>
                   <div className="font-semibold text-white">Cloud Production</div>
                   <div className="text-[11px] text-emerald-400/90 font-mono">https://api.onrender...</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Any PC worldwide via internet</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Live Production Cloud Server</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setServerUrl('http://10.105.106.56:8000');
+                  setServerUrl('http://localhost:8000');
                   setTestResult(null);
                 }}
-                className="p-3 rounded-2xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 text-left flex items-start gap-2.5 transition-all col-span-1 sm:col-span-2"
+                className="p-3 rounded-2xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 text-left flex items-start gap-2.5 transition-all"
               >
-                <Wifi className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <Laptop className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-semibold text-white">Mobile APK Wi-Fi LAN (Host PC)</div>
-                  <div className="text-[11px] text-amber-400/90 font-mono">http://10.105.106.56:8000</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Connect phone APK to host PC backend on local Wi-Fi</div>
+                  <div className="font-semibold text-white">Local Development</div>
+                  <div className="text-[11px] text-slate-400 font-mono">http://localhost:8000</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Local development testing</div>
                 </div>
               </button>
             </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-800/40 text-[11px] text-indigo-300/90 space-y-1">
-            <div className="font-bold flex items-center gap-1.5 text-indigo-200">
-              <Wifi className="w-3.5 h-3.5" /> For College / Lab Demo (Another PC):
-            </div>
-            <p>
-              Connect both laptops to the same Wi-Fi or Mobile Hotspot. Enter your laptop's local IP address
-              (e.g., <code className="bg-indigo-900/60 px-1 py-0.5 rounded text-white font-mono">http://192.168.1.15:8000</code>).
-            </p>
           </div>
         </div>
 
