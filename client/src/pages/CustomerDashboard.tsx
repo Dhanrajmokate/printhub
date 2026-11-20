@@ -5,7 +5,7 @@ import { UploadedFileMeta, PrintSettings, Shop, Order } from '../types/index.js'
 import { FileUploader } from '../components/customer/FileUploader.js';
 import { PrintSettingsModal } from '../components/customer/PrintSettingsModal.js';
 import { ShopSelector } from '../components/customer/ShopSelector.js';
-import { CampusMapDiscovery } from '../components/customer/CampusMapDiscovery.js';
+import { ShopMapDiscovery } from '../components/customer/ShopMapDiscovery.js';
 import { PaymentModal } from '../components/customer/PaymentModal.js';
 import { OrderTracker } from '../components/customer/OrderTracker.js';
 import { WalletModal } from '../components/customer/WalletModal.js';
@@ -101,7 +101,7 @@ export const CustomerDashboard: React.FC = () => {
                 <span>Welcome back, {user?.name?.split(' ')[0] || 'Customer'}! 👋</span>
               </h1>
               <p className="text-xs sm:text-sm text-indigo-100">
-                Upload your document, choose your nearest campus shop, and pickup in minutes.
+                Upload your document, choose your nearest verified print hub, and pickup in minutes.
               </p>
             </div>
 
@@ -153,12 +153,12 @@ export const CustomerDashboard: React.FC = () => {
               }`}
             >
               <MapPin className="w-4 h-4 text-emerald-500" />
-              <span>Campus Shops Map</span>
+              <span>Find Shops on Map</span>
             </button>
           </div>
 
           {activeTab === 'MAP' ? (
-            <CampusMapDiscovery
+            <ShopMapDiscovery
               selectedShop={selectedShop}
               onSelectShop={setSelectedShop}
               onProceedToOrder={() => setActiveTab('ORDER')}

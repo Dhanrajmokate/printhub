@@ -40,6 +40,114 @@ const qrUpload = multer({
   }
 });
 
+// In-memory cache for OpenStreetMap Nominatim geocoding requests
+const geocodeCache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// PUBLIC: Geocode search proxy (OpenStreetMap Nominatim worldwide & pan-India)
+router.get('/geocode', async (req: Request, res: Response) => {
+  const query = ((req.query.q as string) || '').trim();
+  if (!query || query.length < 2) {
+    return res.json({ success: true, results: [] });
+  }
+
+  const cacheKey = `geo_${query.toLowerCase()}`;
+  const cached = geocodeCache.get(cacheKey);
+  if (cached && cached.expiry > Date.now()) {
+    return res.json({ success: true, results: cached.data });
+  }
+
+  try {
+    const encoded = encodeURIComponent(query);
+    const nominatimRes = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&addressdetails=1&limit=6`,
+      {
+        headers: {
+          'User-Agent': 'PrintHub-Commercial-App/1.0 (support@printhub.com)',
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    if (!nominatimRes.ok) {
+      return res.status(502).json({ success: false, message: 'Geocoding service unavailable' });
+    }
+
+    const data: any = await nominatimRes.json();
+    if (!Array.isArray(data)) {
+      return res.json({ success: true, results: [] });
+    }
+
+    const results = data.map((item: any) => ({
+      placeId: item.place_id,
+      displayName: item.display_name,
+      name: item.name || item.display_name.split(',')[0],
+      coords: {
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon)
+      },
+      type: item.type || item.class
+    }));
+
+    geocodeCache.set(cacheKey, { data: results, expiry: Date.now() + CACHE_TTL_MS });
+    return res.json({ success: true, results });
+  } catch (err: any) {
+    console.error('[Geocode Proxy Error]:', err.message);
+    return res.status(500).json({ success: false, message: 'Geocoding failed' });
+  }
+});
+
+// PUBLIC: Reverse geocode proxy (OpenStreetMap Nominatim)
+router.get('/reverse-geocode', async (req: Request, res: Response) => {
+  const lat = req.query.lat as string;
+  const lng = req.query.lng as string;
+  if (!lat || !lng) {
+    return res.status(400).json({ success: false, message: 'lat and lng required' });
+  }
+
+  const cacheKey = `rev_${parseFloat(lat).toFixed(4)}_${parseFloat(lng).toFixed(4)}`;
+  const cached = geocodeCache.get(cacheKey);
+  if (cached && cached.expiry > Date.now()) {
+    return res.json({ success: true, address: cached.data });
+  }
+
+  try {
+    const nominatimRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=14&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'PrintHub-Commercial-App/1.0 (support@printhub.com)',
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    if (!nominatimRes.ok) {
+      return res.status(502).json({ success: false, message: 'Reverse geocoding unavailable' });
+    }
+
+    const data: any = await nominatimRes.json();
+    let formattedAddress = data.display_name || 'Location acquired';
+
+    if (data.address) {
+      const parts: string[] = [];
+      const locality = data.address.suburb || data.address.neighbourhood || data.address.road || data.address.residential;
+      const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state_district;
+      const state = data.address.state;
+      if (locality) parts.push(locality);
+      if (city && city !== locality) parts.push(city);
+      if (state && !parts.includes(state)) parts.push(state);
+      if (parts.length > 0) formattedAddress = parts.join(', ');
+    }
+
+    geocodeCache.set(cacheKey, { data: formattedAddress, expiry: Date.now() + CACHE_TTL_MS });
+    return res.json({ success: true, address: formattedAddress, raw: data });
+  } catch (err: any) {
+    console.error('[Reverse Geocode Proxy Error]:', err.message);
+    return res.status(500).json({ success: false, message: 'Reverse geocode failed' });
+  }
+});
+
 // 1. PUBLIC: GET ALL SHOPS (for Customer shop selection)
 router.get('/', async (_req: Request, res: Response) => {
   try {

@@ -3,7 +3,7 @@ import { Settings, X, Save, IndianRupee, Store, MapPin, Phone, QrCode, Upload, I
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
-import { CAMPUS_LANDMARKS } from '../../utils/geo.js';
+import { COMMERCIAL_REGIONS, searchLocationsWorldwide } from '../../utils/geo.js';
 
 interface ShopSettingsModalProps {
   isOpen: boolean;
@@ -45,6 +45,7 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
   const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDetectingGps, setIsDetectingGps] = useState(false);
+  const [isGeocodingAddress, setIsGeocodingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
@@ -140,14 +141,40 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
     );
   };
 
-  const handleSelectPresetLandmark = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSelectPresetRegion = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (!val) return;
-    const lm = CAMPUS_LANDMARKS.find((item) => item.id === val);
-    if (lm) {
-      setLatitude(lm.coords.lat.toFixed(6));
-      setLongitude(lm.coords.lng.toFixed(6));
-      showToast('success', 'Campus Landmark Set', `Set to ${lm.name}`);
+    const reg = COMMERCIAL_REGIONS.find((item) => item.id === val);
+    if (reg) {
+      setLatitude(reg.coords.lat.toFixed(6));
+      setLongitude(reg.coords.lng.toFixed(6));
+      showToast('success', 'Region Selected', `Pinned to ${reg.name}`);
+    }
+  };
+
+  const handleGeocodeAddress = async () => {
+    if (!address || address.trim().length < 2) {
+      showToast('error', 'Address Required', 'Please enter your shop address or city first.');
+      return;
+    }
+
+    setIsGeocodingAddress(true);
+    showToast('info', 'Geocoding Address', `Searching coordinates for '${address}'...`);
+
+    try {
+      const results = await searchLocationsWorldwide(address);
+      if (results && results.length > 0) {
+        const top = results[0];
+        setLatitude(top.coords.lat.toFixed(6));
+        setLongitude(top.coords.lng.toFixed(6));
+        showToast('success', 'Shop Coordinates Updated!', `Pinned: ${top.displayName.split(',').slice(0, 3).join(',')}`);
+      } else {
+        showToast('warning', 'Address Not Found', 'Could not locate address. Try including city name (e.g. Washim, Maharashtra) or use 1-Click GPS.');
+      }
+    } catch (err: any) {
+      showToast('error', 'Geocoding Failed', err.message || 'Could not locate address.');
+    } finally {
+      setIsGeocodingAddress(false);
     }
   };
 
@@ -231,14 +258,26 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                Shop Address
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
+                  Shop Address
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGeocodeAddress}
+                  disabled={isGeocodingAddress}
+                  className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                >
+                  {isGeocodingAddress ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                  <span>Pin Address on Map</span>
+                </button>
+              </div>
               <input
                 type="text"
                 required
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. Shop #12, Station Road, Washim or MG Road, Bengaluru"
                 className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"
               />
             </div>
@@ -266,13 +305,13 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Shop Geolocation (Map Discovery)</span>
+                    <span>Shop Geolocation (Pan-India & Worldwide)</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                       Live
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Pins your shop on the customer map and calculates real student walking times
+                    Pins your shop on customer maps and calculates live distance & transit times
                   </p>
                 </div>
               </div>
@@ -290,44 +329,65 @@ export const ShopSettingsModal: React.FC<ShopSettingsModalProps> = ({
               )}
             </div>
 
-            {/* 1-Click Auto-Detect Location Button */}
-            <button
-              type="button"
-              onClick={handleDetectShopGps}
-              disabled={isDetectingGps}
-              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${
-                isDetectingGps
-                  ? 'bg-indigo-200 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 cursor-wait'
-                  : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-[0.99]'
-              }`}
-            >
-              {isDetectingGps ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-                  <span>Locking Device GPS Fix... Please wait</span>
-                </>
-              ) : (
-                <>
-                  <Compass className="w-4 h-4" />
-                  <span>📍 Auto-Detect My Shop Location (1-Click GPS)</span>
-                </>
-              )}
-            </button>
+            {/* Quick Action Buttons: Auto-Detect GPS & Pin Address */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleDetectShopGps}
+                disabled={isDetectingGps}
+                className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                  isDetectingGps
+                    ? 'bg-indigo-200 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 cursor-wait'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-[0.99]'
+                }`}
+              >
+                {isDetectingGps ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>Locking GPS...</span>
+                  </>
+                ) : (
+                  <>
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>1-Click Device GPS</span>
+                  </>
+                )}
+              </button>
 
-            {/* Campus Landmark Preset Dropdown */}
+              <button
+                type="button"
+                onClick={handleGeocodeAddress}
+                disabled={isGeocodingAddress}
+                className="py-2.5 px-3 rounded-2xl text-xs font-bold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                {isGeocodingAddress ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                    <span>Geocoding...</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Pin From Address</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Regional Metro / City Preset Dropdown */}
             <div>
               <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                Or Quick-Pick a Campus Landmark:
+                Or Quick-Pick a Metro / City Hub:
               </label>
               <select
-                onChange={handleSelectPresetLandmark}
+                onChange={handleSelectPresetRegion}
                 defaultValue=""
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-indigo-600 focus:outline-none cursor-pointer"
               >
-                <option value="" disabled>-- Select Campus Building / Landmark --</option>
-                {CAMPUS_LANDMARKS.map((lm) => (
-                  <option key={lm.id} value={lm.id}>
-                    {lm.name} ({lm.coords.lat}, {lm.coords.lng})
+                <option value="" disabled>-- Select Regional Metro or City --</option>
+                {COMMERCIAL_REGIONS.filter(r => r.id !== 'all-india').map((reg) => (
+                  <option key={reg.id} value={reg.id}>
+                    {reg.name} ({reg.coords.lat}, {reg.coords.lng})
                   </option>
                 ))}
               </select>

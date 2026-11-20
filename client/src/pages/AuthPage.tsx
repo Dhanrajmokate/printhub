@@ -116,7 +116,7 @@ export const AuthPage: React.FC = () => {
     setMode('LOGIN');
     setErrorMessage('');
     loginAsDemo('SHOP');
-    showToast('success', 'Demo Shop Active', 'Logged in as Demo Print Shopkeeper (Campus Central).');
+    showToast('success', 'Demo Shop Active', 'Logged in as Demo Print Shopkeeper (PrintHub Metro Central).');
     navigate('/shop');
   };
 
