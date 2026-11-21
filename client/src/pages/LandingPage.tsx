@@ -32,6 +32,13 @@ export const LandingPage: React.FC = () => {
     }
   };
 
+  const handleDemoAdminLogin = async () => {
+    const res = await login('admin@printhub.com', 'admin123');
+    if (res.success) {
+      navigate('/admin');
+    }
+  };
+
   return (
     <div className="space-y-16 py-8">
       {/* Hero Section */}
@@ -52,13 +59,33 @@ export const LandingPage: React.FC = () => {
         {/* CTA Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           {isAuthenticated ? (
-            <Link
-              to="/dashboard"
-              className="px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center gap-2"
-            >
-              <span>Upload & Print Documents</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            user?.role === 'ADMIN' ? (
+              <Link
+                to="/admin"
+                className="px-8 py-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-xl shadow-rose-500/25 transition-all flex items-center gap-2"
+              >
+                <ShieldCheck className="w-5 h-5" />
+                <span>Open Admin Control Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : user?.role === 'SHOP' ? (
+              <Link
+                to="/shop"
+                className="px-8 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all flex items-center gap-2"
+              >
+                <Store className="w-5 h-5" />
+                <span>Open Shop Partner Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <Link
+                to="/dashboard"
+                className="px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all flex items-center gap-2"
+              >
+                <span>Upload & Print Documents</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )
           ) : (
             <>
               <Link
@@ -76,7 +103,17 @@ export const LandingPage: React.FC = () => {
                 className="px-6 py-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
               >
                 <Zap className="w-4 h-4 text-emerald-600" />
-                <span>Demo Customer Account (₹100 Credit)</span>
+                <span>Demo Customer (₹100 Credit)</span>
+              </button>
+
+              {/* 1-Click Admin Demo */}
+              <button
+                type="button"
+                onClick={handleDemoAdminLogin}
+                className="px-6 py-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 text-rose-600" />
+                <span>Admin Portal Demo</span>
               </button>
 
               <Link

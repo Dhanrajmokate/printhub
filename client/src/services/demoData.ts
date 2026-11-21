@@ -634,8 +634,14 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
 
   if (url.includes('/auth/me')) {
     const savedToken = typeof window !== 'undefined' ? localStorage.getItem('printhub_token') || sessionStorage.getItem('printhub_token') : '';
-    if (savedToken === 'demo-jwt-token-admin') return { success: true, user: DEMO_ADMIN_USER };
-    const isShop = savedToken === 'demo-jwt-token-shop' || savedToken?.includes('shop');
+    const savedUserRaw = typeof window !== 'undefined' ? localStorage.getItem('printhub_user') || sessionStorage.getItem('printhub_user') : '';
+    let savedUser: any = null;
+    try { savedUser = JSON.parse(savedUserRaw || ''); } catch (e) {}
+
+    if (savedToken === 'demo-jwt-token-admin' || savedUser?.role === 'ADMIN') {
+      return { success: true, user: DEMO_ADMIN_USER };
+    }
+    const isShop = savedToken === 'demo-jwt-token-shop' || savedToken?.includes('shop') || savedUser?.role === 'SHOP';
     return { success: true, user: isShop ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER };
   }
 

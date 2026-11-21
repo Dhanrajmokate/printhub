@@ -91,10 +91,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                SHOP PARTNER APP NAVIGATION (Strictly for Shopkeepers & Hardware Spooler)
                ========================================================================= */
             <div className="hidden sm:flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
-                <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                <span>Hardware Spooler Connected</span>
-              </div>
+              {user?.role === 'ADMIN' ? (
+                <Link
+                  to="/admin"
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-bold"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Admin Control Center</span>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
+                  <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                  <span>Hardware Spooler Connected</span>
+                </div>
+              )}
               {user?.shop && (
                 <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
                   {user.shop.name}

@@ -54,15 +54,16 @@ export const AuthPage: React.FC = () => {
     const effectiveUser = user || storedUser;
     const isAuthed = isAuthenticated || Boolean(storedUser);
 
-    if (isAuthed) {
-      if (effectiveUser?.role === 'ADMIN') {
+    if (isAuthed && effectiveUser) {
+      if (effectiveUser.role === 'ADMIN') {
         navigate('/admin', { replace: true });
+      } else if (effectiveUser.role === 'SHOP') {
+        navigate('/shop', { replace: true });
       } else {
-        const redirectPath = isShopApp ? '/shop' : '/dashboard';
-        navigate(redirectPath, { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     }
-  }, [isAuthenticated, user, isShopApp, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   // Handle ?role=admin URL param
   useEffect(() => {
@@ -83,13 +84,19 @@ export const AuthPage: React.FC = () => {
       const res = await login(email, password);
       if (res.success) {
         showToast('success', 'Welcome Back!', 'Logged in successfully.');
-        const storedUserRaw = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
-        const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
-        if (storedUser?.role === 'ADMIN') {
+        const activeRole = res.user?.role || (() => {
+          try {
+            const raw = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
+            return raw ? JSON.parse(raw)?.role : null;
+          } catch { return null; }
+        })();
+
+        if (activeRole === 'ADMIN') {
           navigate('/admin', { replace: true });
+        } else if (activeRole === 'SHOP') {
+          navigate('/shop', { replace: true });
         } else {
-          const redirectPath = isShopApp ? '/shop' : '/dashboard';
-          navigate(redirectPath, { replace: true });
+          navigate('/dashboard', { replace: true });
         }
       } else if (res.requiresOtp) {
         setOtpEmail(email);

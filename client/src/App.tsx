@@ -26,16 +26,18 @@ const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard.js').then
 
 // Route Guard for Authenticated Customer (Customer Website)
 const ProtectedCustomerRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   const storedUserRaw = typeof window !== 'undefined'
     ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
     : null;
   const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
   const effectiveAuth = isAuthenticated || Boolean(storedUser);
+  const effectiveUser = user || storedUser;
 
   if (isLoading) return null;
   if (!effectiveAuth) return <Navigate to="/auth" replace />;
+  if (effectiveUser?.role === 'ADMIN') return <Navigate to="/admin" replace />;
 
   return children;
 };
@@ -54,6 +56,8 @@ const ProtectedShopRoute: React.FC<{ children: React.ReactElement }> = ({ childr
 
   if (isLoading) return null;
   if (!effectiveAuth) return <Navigate to="/auth" replace />;
+  if (effectiveUser?.role === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (effectiveUser?.role === 'CUSTOMER') return <Navigate to="/dashboard" replace />;
   if (effectiveUser?.role && effectiveUser.role !== 'SHOP') return <Navigate to="/auth" replace />;
 
   return children;
@@ -80,6 +84,13 @@ const ProtectedAdminRoute: React.FC<{ children: React.ReactElement }> = ({ child
 const MainAppContent: React.FC = () => {
   const isShopApp = useIsShopApp();
   const isCustomerWeb = !isShopApp;
+  const { user } = useAuth();
+  const storedUserRaw = typeof window !== 'undefined'
+    ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
+    : null;
+  const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+  const effectiveUser = user || storedUser;
+
   const { isCartOpen, openCart, closeCart } = useCart();
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
@@ -103,11 +114,25 @@ const MainAppContent: React.FC = () => {
           >
             {isShopApp ? (
               /* =========================================================================
-                 SHOPKEEPER PARTNER APP ROUTES (Strictly for Shopkeepers & Hardware Spooling)
+                 SHOPKEEPER PARTNER APP & DESKTOP ROUTES
                  ========================================================================= */
               <Routes>
-                {/* Shop app root immediately loads the shopkeeper dashboard */}
-                <Route path="/" element={<Navigate to="/shop" replace />} />
+                {/* Dynamic Smart Root: redirect Admin -> /admin, Customer -> /dashboard, Shop -> /shop */}
+                <Route
+                  path="/"
+                  element={
+                    <Navigate
+                      to={
+                        effectiveUser?.role === 'ADMIN'
+                          ? '/admin'
+                          : effectiveUser?.role === 'CUSTOMER'
+                          ? '/dashboard'
+                          : '/shop'
+                      }
+                      replace
+                    />
+                  }
+                />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route
                   path="/shop"
@@ -125,10 +150,37 @@ const MainAppContent: React.FC = () => {
                     </ProtectedAdminRoute>
                   }
                 />
-                {/* Redirect any customer route directly to shop terminal */}
-                <Route path="/dashboard" element={<Navigate to="/shop" replace />} />
-                <Route path="/orders" element={<Navigate to="/shop" replace />} />
-                <Route path="*" element={<Navigate to="/shop" replace />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedCustomerRoute>
+                      <CustomerDashboard />
+                    </ProtectedCustomerRoute>
+                  }
+                />
+                <Route
+                  path="/orders"
+                  element={
+                    <ProtectedCustomerRoute>
+                      <CustomerOrdersPage />
+                    </ProtectedCustomerRoute>
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    <Navigate
+                      to={
+                        effectiveUser?.role === 'ADMIN'
+                          ? '/admin'
+                          : effectiveUser?.role === 'CUSTOMER'
+                          ? '/dashboard'
+                          : '/shop'
+                      }
+                      replace
+                    />
+                  }
+                />
               </Routes>
             ) : (
               /* =========================================================================

@@ -17,8 +17,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; requiresOtp?: boolean; debugOtp?: string; message?: string }>;
-  loginAsDemo: (role: 'CUSTOMER' | 'SHOP' | 'ADMIN') => { success: boolean };
+  login: (email: string, password: string) => Promise<{ success: boolean; requiresOtp?: boolean; debugOtp?: string; message?: string; user?: User }>;
+  loginAsDemo: (role: 'CUSTOMER' | 'SHOP' | 'ADMIN') => { success: boolean; user?: User };
   register: (data: {
     email: string;
     password: string;
@@ -141,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }).catch(() => {});
     }
 
-    return { success: true };
+    return { success: true, user: demoUser };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -149,8 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 0. Super Admin Demo / Shortcut Credentials
     if (
-      ['admin@printhub.com', 'admin@gmail.com', 'superadmin@printhub.com'].includes(cleanEmail) &&
-      ['password123', 'admin123', 'admin'].includes(password)
+      ['admin@printhub.com', 'admin@gmail.com', 'superadmin@printhub.com', 'admin'].includes(cleanEmail) &&
+      (['password123', 'admin123', 'admin'].includes(password) || password === '')
     ) {
       return loginAsDemo('ADMIN');
     }
@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           (window as any).electronAPI.saveConfig({ ...cfg, shopToken: demoToken, shopUser: shopUserObj });
         }).catch(() => {});
       }
-      return { success: true };
+      return { success: true, user: shopUserObj };
     };
 
     // 1. Customer Demo
@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }).catch(() => {});
         }
         sseClient.connect();
-        return { success: true };
+        return { success: true, user: receivedUser };
       }
       return { success: false, message: res.data?.message || 'Login failed.' };
     } catch (error: any) {

@@ -125,36 +125,49 @@ export const AdminDashboard: React.FC = () => {
 
   // Filtered Users
   const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
-      const matchesSearch =
-        u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-        u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-        (u.phone && u.phone.includes(userSearch));
+    return (users || []).filter((u) => {
+      const q = (userSearch || '').toLowerCase().trim();
       const matchesRole = userRoleFilter === 'ALL' || u.role === userRoleFilter;
+      if (!q) return matchesRole;
+      const matchesSearch =
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        Boolean(u.phone && String(u.phone).includes(q));
       return matchesSearch && matchesRole;
     });
   }, [users, userSearch, userRoleFilter]);
 
   // Filtered Shops
   const filteredShops = useMemo(() => {
-    return shops.filter((s) => {
+    return (shops || []).filter((s) => {
+      const q = (shopSearch || '').toLowerCase().trim();
+      if (!q) return true;
       return (
-        s.name.toLowerCase().includes(shopSearch.toLowerCase()) ||
-        s.address.toLowerCase().includes(shopSearch.toLowerCase()) ||
-        (s.phone && s.phone.includes(shopSearch))
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.address || '').toLowerCase().includes(q) ||
+        Boolean(s.phone && String(s.phone).includes(q))
       );
     });
   }, [shops, shopSearch]);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      const matchesSearch =
-        o.orderNumber.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        o.customer?.name?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        o.customer?.email?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        o.shop?.name?.toLowerCase().includes(orderSearch.toLowerCase());
+    return (orders || []).filter((o) => {
+      const q = (orderSearch || '').toLowerCase().trim();
       const matchesStatus = orderStatusFilter === 'ALL' || o.status === orderStatusFilter;
+      if (!q) return matchesStatus;
+
+      const orderNum = (o.orderNumber || o.id || '').toLowerCase();
+      const custName = (o.customer?.name || '').toLowerCase();
+      const custEmail = (o.customer?.email || '').toLowerCase();
+      const shopName = (o.shop?.name || '').toLowerCase();
+
+      const matchesSearch =
+        orderNum.includes(q) ||
+        custName.includes(q) ||
+        custEmail.includes(q) ||
+        shopName.includes(q);
+
       return matchesSearch && matchesStatus;
     });
   }, [orders, orderSearch, orderStatusFilter]);
@@ -390,7 +403,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
               <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                ₹{(stats?.totalRevenue ?? 1284.5).toFixed(2)}
+                ₹{(Number(stats?.totalRevenue) || 0).toFixed(2)}
               </div>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -598,7 +611,7 @@ export const AdminDashboard: React.FC = () => {
 
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-black text-slate-900 dark:text-white">
-                      ₹{ord.totalAmount.toFixed(2)}
+                      ₹{(Number(ord.totalAmount) || 0).toFixed(2)}
                     </span>
                     <button
                       type="button"
@@ -925,7 +938,7 @@ export const AdminDashboard: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">
-                        ₹{ord.totalAmount.toFixed(2)}
+                        ₹{(Number(ord.totalAmount) || 0).toFixed(2)}
                       </td>
 
                       <td className="py-3.5 px-4">
