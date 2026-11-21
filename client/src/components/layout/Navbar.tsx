@@ -139,6 +139,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                   >
                     My Orders & Receipts
                   </Link>
+
+                  {user?.role === 'ADMIN' && (
+                    <Link
+                      to="/admin"
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                        location.pathname === '/admin'
+                          ? 'text-rose-600 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-950/50'
+                          : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50/50'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Admin Center</span>
+                    </Link>
+                  )}
                 </>
               )}
 
@@ -210,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                       {user?.name}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 capitalize">
-                      {isShopApp ? 'Store Partner' : 'Customer'}
+                      {user?.role === 'ADMIN' ? 'Platform Admin' : isShopApp ? 'Store Partner' : 'Customer'}
                     </span>
                   </div>
 
@@ -303,6 +317,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenWallet }) => {
                       <span>Orders & Receipts</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </Link>
+
+                    {user?.role === 'ADMIN' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center justify-between p-3 rounded-2xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                          <span>Admin Control Center</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-rose-400" />
+                      </Link>
+                    )}
                   </>
                 )}
 

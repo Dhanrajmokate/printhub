@@ -50,13 +50,29 @@ export const AuthPage: React.FC = () => {
     const storedUserRaw = typeof window !== 'undefined'
       ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
       : null;
-    const isAuthed = isAuthenticated || Boolean(storedUserRaw);
+    const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+    const effectiveUser = user || storedUser;
+    const isAuthed = isAuthenticated || Boolean(storedUser);
 
     if (isAuthed) {
-      const redirectPath = isShopApp ? '/shop' : '/dashboard';
-      navigate(redirectPath, { replace: true });
+      if (effectiveUser?.role === 'ADMIN') {
+        navigate('/admin', { replace: true });
+      } else {
+        const redirectPath = isShopApp ? '/shop' : '/dashboard';
+        navigate(redirectPath, { replace: true });
+      }
     }
-  }, [isAuthenticated, isShopApp, navigate]);
+  }, [isAuthenticated, user, isShopApp, navigate]);
+
+  // Handle ?role=admin URL param
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('role') === 'admin') {
+      setEmail('admin@printhub.com');
+      setPassword('admin123');
+      setMode('LOGIN');
+    }
+  }, [location.search]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,8 +83,14 @@ export const AuthPage: React.FC = () => {
       const res = await login(email, password);
       if (res.success) {
         showToast('success', 'Welcome Back!', 'Logged in successfully.');
-        const redirectPath = isShopApp ? '/shop' : '/dashboard';
-        navigate(redirectPath, { replace: true });
+        const storedUserRaw = sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user');
+        const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+        if (storedUser?.role === 'ADMIN') {
+          navigate('/admin', { replace: true });
+        } else {
+          const redirectPath = isShopApp ? '/shop' : '/dashboard';
+          navigate(redirectPath, { replace: true });
+        }
       } else if (res.requiresOtp) {
         setOtpEmail(email);
         setDebugOtp(res.debugOtp);
@@ -131,6 +153,16 @@ export const AuthPage: React.FC = () => {
     loginAsDemo('CUSTOMER');
     showToast('success', 'Demo Customer Active', 'Logged in as Demo Student Customer (₹100 Wallet Credit).');
     navigate('/dashboard', { replace: true });
+  };
+
+  const fillDemoAdmin = () => {
+    setEmail('admin@printhub.com');
+    setPassword('admin123');
+    setMode('LOGIN');
+    setErrorMessage('');
+    loginAsDemo('ADMIN');
+    showToast('success', 'Admin Portal Active', 'Logged in as System Super Admin.');
+    navigate('/admin', { replace: true });
   };
 
   const fillDemoShop = () => {
@@ -218,15 +250,27 @@ export const AuthPage: React.FC = () => {
                 <span>Demo Shop Terminal (Active Printers)</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={fillDemoCustomer}
-                disabled={isSubmitting}
-                className="w-full py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Demo Customer Account (₹100 Wallet Credit)</span>
-              </button>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={fillDemoCustomer}
+                  disabled={isSubmitting}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Demo Customer (₹100 Wallet Credit)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fillDemoAdmin}
+                  disabled={isSubmitting}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 disabled:opacity-50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Admin Control Panel (Platform Access)</span>
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -360,9 +404,9 @@ export const AuthPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Footer Link to Shop Partner Portal on Website */}
+        {/* Footer Link to Shop Partner Portal & Admin Portal */}
         {isCustomerWeb && (
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-1.5 text-center">
             <Link
               to="/shop"
               className="inline-flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline font-bold"
@@ -370,6 +414,19 @@ export const AuthPage: React.FC = () => {
               <Store className="w-3.5 h-3.5" />
               <span>Are you a print shop owner? Visit the Partner Portal (.exe)</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@printhub.com');
+                setPassword('admin123');
+                setMode('LOGIN');
+              }}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+            >
+              <ShieldCheck className="w-3 h-3 text-rose-500" />
+              <span>System Admin Login Portal</span>
+            </button>
           </div>
         )}
       </div>

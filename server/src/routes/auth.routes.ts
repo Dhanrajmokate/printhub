@@ -219,7 +219,7 @@ router.post('/verify-otp', async (req, res: Response) => {
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: user.role as 'CUSTOMER' | 'SHOP',
+      role: user.role as 'CUSTOMER' | 'SHOP' | 'ADMIN',
       name: user.name
     });
 
@@ -319,7 +319,7 @@ router.post('/login', async (req, res: Response) => {
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: user.role as 'CUSTOMER' | 'SHOP',
+      role: user.role as 'CUSTOMER' | 'SHOP' | 'ADMIN',
       name: user.name
     });
 

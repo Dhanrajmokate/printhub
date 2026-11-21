@@ -24,6 +24,25 @@ export const DEMO_CUSTOMER_USER: User = {
   }
 };
 
+export const DEMO_ADMIN_USER: User = {
+  id: 'demo-admin-id',
+  email: 'admin@printhub.com',
+  name: 'System Super Admin',
+  phone: '9999900000',
+  role: 'ADMIN',
+  isVerified: true
+};
+
+export const DEMO_PLATFORM_CONFIG = {
+  maintenanceMode: false,
+  announcement: '🎉 PrintHub 2.0 Live! Enjoy superfast cloud printing at all campus print shops.',
+  signupBonus: 100,
+  platformCommissionPercent: 5.0,
+  allowNewRegistrations: true,
+  emergencyNotice: '',
+  updatedAt: new Date().toISOString()
+};
+
 export const DEMO_SHOP_USER: User = {
   id: 'demo-shop-user-id',
   email: 'shop@printhub.com',
@@ -602,18 +621,137 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
     } else if (postData && typeof postData === 'object') {
       email = postData.email || '';
     }
-    const isShop = email.toLowerCase().includes('shop');
+    const clean = email.toLowerCase();
+    const isAdmin = clean.includes('admin');
+    const isShop = clean.includes('shop') || clean.includes('dhanraj') || clean.includes('campus') || clean.includes('apex');
     return {
       success: true,
-      token: isShop ? 'demo-jwt-token-shop' : 'demo-jwt-token-customer',
-      user: isShop ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER,
+      token: isAdmin ? 'demo-jwt-token-admin' : isShop ? 'demo-jwt-token-shop' : 'demo-jwt-token-customer',
+      user: isAdmin ? DEMO_ADMIN_USER : isShop ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER,
       message: 'Demo login successful'
     };
   }
 
   if (url.includes('/auth/me')) {
-    const isShop = typeof window !== 'undefined' && localStorage.getItem('printhub_token') === 'demo-jwt-token-shop';
+    const savedToken = typeof window !== 'undefined' ? localStorage.getItem('printhub_token') || sessionStorage.getItem('printhub_token') : '';
+    if (savedToken === 'demo-jwt-token-admin') return { success: true, user: DEMO_ADMIN_USER };
+    const isShop = savedToken === 'demo-jwt-token-shop' || savedToken?.includes('shop');
     return { success: true, user: isShop ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER };
+  }
+
+  // ==========================================
+  // ADMIN MOCK ENDPOINTS (Offline & Mobile Demo)
+  // ==========================================
+  if (url.includes('/admin/stats')) {
+    const totalRevenue = DEMO_ORDERS.reduce((acc, o) => acc + (o.paymentStatus === 'PAID' ? o.totalAmount : 0), 0);
+    return {
+      success: true,
+      stats: {
+        totalUsers: 124,
+        totalCustomers: 118,
+        totalShops: DEMO_SHOPS.length,
+        totalOrders: DEMO_ORDERS.length,
+        completedOrders: DEMO_ORDERS.filter((o) => o.status === 'COMPLETED').length,
+        pendingOrders: DEMO_ORDERS.filter((o) => o.status === 'PENDING' || o.status === 'PRINTING').length,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalPrinters: DEMO_PRINTERS.length,
+        onlinePrinters: DEMO_PRINTERS.filter((p) => p.isOnline).length,
+        systemStatus: DEMO_PLATFORM_CONFIG.maintenanceMode ? 'MAINTENANCE' : 'OPERATIONAL',
+        recentOrders: DEMO_ORDERS.slice(0, 5)
+      }
+    };
+  }
+
+  if (url.includes('/admin/users')) {
+    const mockUsers = [
+      {
+        id: 'user-admin-1',
+        name: 'System Super Admin',
+        email: 'admin@printhub.com',
+        phone: '9999900000',
+        role: 'ADMIN',
+        isVerified: true,
+        createdAt: '2026-01-01T10:00:00Z',
+        walletBalance: 0,
+        orderCount: 0
+      },
+      {
+        id: 'demo-customer-id',
+        name: 'Demo Student Customer',
+        email: 'customer@printhub.com',
+        phone: '9876543210',
+        role: 'CUSTOMER',
+        isVerified: true,
+        createdAt: '2026-02-15T09:30:00Z',
+        walletBalance: DEMO_CUSTOMER_USER.wallet?.balance || 100.0,
+        orderCount: DEMO_ORDERS.filter((o) => o.customerId === 'demo-customer-id').length
+      },
+      {
+        id: 'demo-shop-user-id',
+        name: 'Apex Printing Co.',
+        email: 'shop@printhub.com',
+        phone: '9876543210',
+        role: 'SHOP',
+        isVerified: true,
+        createdAt: '2026-02-10T12:00:00Z',
+        walletBalance: DEMO_SHOP_WALLET.balance,
+        shop: { id: 'demo-shop-id', name: 'PrintHub Metro Central', address: 'Metro Station Arcade, Ground Floor, Shop #3' },
+        orderCount: 42
+      },
+      {
+        id: 'dhanraj-user-id',
+        name: 'Dhanraj Gopal Mokate',
+        email: 'dhanraj@printhub.com',
+        phone: '9876543213',
+        role: 'SHOP',
+        isVerified: true,
+        createdAt: '2026-02-18T14:20:00Z',
+        walletBalance: 2450.0,
+        shop: { id: 'shop-dhanraj', name: 'Dhanraj Station Print Shop', address: 'Railway Station Road, Commercial Complex, Shop #11' },
+        orderCount: 88
+      },
+      {
+        id: 'campus-user-id',
+        name: 'Campus Print Corner',
+        email: 'campus@printhub.com',
+        phone: '9123456789',
+        role: 'SHOP',
+        isVerified: true,
+        createdAt: '2026-02-20T16:45:00Z',
+        walletBalance: 1200.0,
+        shop: { id: 'shop-campus', name: 'Campus Express Print Hub', address: 'Block C, University Student Center' },
+        orderCount: 65
+      }
+    ];
+    return { success: true, users: mockUsers };
+  }
+
+  if (url.includes('/admin/shops')) {
+    return {
+      success: true,
+      shops: DEMO_SHOPS.map((s) => ({
+        ...s,
+        owner: { id: `owner-${s.id}`, name: `${s.name} Owner`, email: `owner-${s.id}@printhub.com`, phone: s.phone, isVerified: true },
+        printersCount: s.printers?.length || 2,
+        totalOrders: 35
+      }))
+    };
+  }
+
+  if (url.includes('/admin/orders')) {
+    return { success: true, orders: DEMO_ORDERS };
+  }
+
+  if (url.includes('/admin/config')) {
+    if (m === 'PUT') {
+      let body: any = postData;
+      if (typeof postData === 'string') {
+        try { body = JSON.parse(postData); } catch (e) {}
+      }
+      Object.assign(DEMO_PLATFORM_CONFIG, body);
+      return { success: true, message: 'Platform config updated', config: DEMO_PLATFORM_CONFIG };
+    }
+    return { success: true, config: DEMO_PLATFORM_CONFIG };
   }
 
   if (url.includes('/shops/wallet')) {

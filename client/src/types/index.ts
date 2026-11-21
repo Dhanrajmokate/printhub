@@ -1,4 +1,4 @@
-export type UserRole = 'CUSTOMER' | 'SHOP';
+export type UserRole = 'CUSTOMER' | 'SHOP' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -175,6 +175,44 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+}
+
+export interface AdminTelemetry {
+  totalUsers: number;
+  totalCustomers: number;
+  totalShops: number;
+  totalOrders: number;
+  completedOrders: number;
+  pendingOrders: number;
+  totalRevenue: number;
+  totalPrinters: number;
+  onlinePrinters: number;
+  systemStatus: 'OPERATIONAL' | 'MAINTENANCE';
+  recentOrders: Order[];
+}
+
+export interface AdminUserRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: UserRole;
+  isVerified: boolean;
+  createdAt: string;
+  walletBalance: number;
+  walletId?: string;
+  shop?: { id: string; name: string; address: string } | null;
+  orderCount: number;
+}
+
+export interface PlatformConfig {
+  maintenanceMode: boolean;
+  announcement: string;
+  signupBonus: number;
+  platformCommissionPercent: number;
+  allowNewRegistrations: boolean;
+  emergencyNotice?: string;
+  updatedAt: string;
 }
 
 declare global {

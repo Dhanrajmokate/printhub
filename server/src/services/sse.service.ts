@@ -3,7 +3,7 @@ import { Response } from 'express';
 interface SSEClient {
   id: string;
   userId: string;
-  role: 'CUSTOMER' | 'SHOP';
+  role: 'CUSTOMER' | 'SHOP' | 'ADMIN';
   shopId?: string;
   res: Response;
 }
@@ -24,7 +24,7 @@ class SSEService {
     }, 25000);
   }
 
-  addClient(id: string, userId: string, role: 'CUSTOMER' | 'SHOP', res: Response, shopId?: string) {
+  addClient(id: string, userId: string, role: 'CUSTOMER' | 'SHOP' | 'ADMIN', res: Response, shopId?: string) {
     this.clients.set(id, { id, userId, role, shopId, res });
     console.log(`[SSE] Client connected: ${id} (User: ${userId}, Role: ${role}, Shop: ${shopId || 'N/A'})`);
 

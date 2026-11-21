@@ -4,7 +4,7 @@ import { config } from '../config/index.js';
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: 'CUSTOMER' | 'SHOP';
+  role: 'CUSTOMER' | 'SHOP' | 'ADMIN';
   name: string;
 }
 

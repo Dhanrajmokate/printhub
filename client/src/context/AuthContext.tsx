@@ -5,6 +5,7 @@ import { sseClient } from '../services/sse.js';
 import {
   DEMO_CUSTOMER_USER,
   DEMO_SHOP_USER,
+  DEMO_ADMIN_USER,
   DEMO_DHANRAJ_SHOP_USER,
   DEMO_CAMPUS_SHOP_USER,
   DEMO_LIBRARY_SHOP_USER,
@@ -17,7 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; requiresOtp?: boolean; debugOtp?: string; message?: string }>;
-  loginAsDemo: (role: 'CUSTOMER' | 'SHOP') => { success: boolean };
+  loginAsDemo: (role: 'CUSTOMER' | 'SHOP' | 'ADMIN') => { success: boolean };
   register: (data: {
     email: string;
     password: string;
@@ -115,9 +116,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const loginAsDemo = useCallback((role: 'CUSTOMER' | 'SHOP') => {
-    const demoUser = role === 'SHOP' ? DEMO_SHOP_USER : DEMO_CUSTOMER_USER;
-    const demoToken = role === 'SHOP' ? 'demo-jwt-token-shop' : 'demo-jwt-token-customer';
+  const loginAsDemo = useCallback((role: 'CUSTOMER' | 'SHOP' | 'ADMIN') => {
+    let demoUser: User = DEMO_CUSTOMER_USER;
+    let demoToken = 'demo-jwt-token-customer';
+
+    if (role === 'SHOP') {
+      demoUser = DEMO_SHOP_USER;
+      demoToken = 'demo-jwt-token-shop';
+    } else if (role === 'ADMIN') {
+      demoUser = DEMO_ADMIN_USER;
+      demoToken = 'demo-jwt-token-admin';
+    }
 
     setToken(demoToken);
     setUser(demoUser);
@@ -137,6 +146,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const cleanEmail = (email || '').trim().toLowerCase();
+
+    // 0. Super Admin Demo / Shortcut Credentials
+    if (
+      ['admin@printhub.com', 'admin@gmail.com', 'superadmin@printhub.com'].includes(cleanEmail) &&
+      ['password123', 'admin123', 'admin'].includes(password)
+    ) {
+      return loginAsDemo('ADMIN');
+    }
 
     // Helper for shop login persistence
     const applyShopLogin = (shopUserObj: User, tokenSuffix: string) => {

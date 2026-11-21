@@ -22,6 +22,7 @@ import { useIsShopApp } from './utils/platform.js';
 const CustomerDashboard = React.lazy(() => import('./pages/CustomerDashboard.js').then((m) => ({ default: m.CustomerDashboard })));
 const CustomerOrdersPage = React.lazy(() => import('./pages/CustomerOrdersPage.js').then((m) => ({ default: m.CustomerOrdersPage })));
 const ShopDashboard = React.lazy(() => import('./pages/ShopDashboard.js').then((m) => ({ default: m.ShopDashboard })));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard.js').then((m) => ({ default: m.AdminDashboard })));
 
 // Route Guard for Authenticated Customer (Customer Website)
 const ProtectedCustomerRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -54,6 +55,24 @@ const ProtectedShopRoute: React.FC<{ children: React.ReactElement }> = ({ childr
   if (isLoading) return null;
   if (!effectiveAuth) return <Navigate to="/auth" replace />;
   if (effectiveUser?.role && effectiveUser.role !== 'SHOP') return <Navigate to="/auth" replace />;
+
+  return children;
+};
+
+// Route Guard for Authenticated Platform Admin
+const ProtectedAdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  const storedUserRaw = typeof window !== 'undefined'
+    ? sessionStorage.getItem('printhub_user') || localStorage.getItem('printhub_user')
+    : null;
+  const storedUser = storedUserRaw ? (() => { try { return JSON.parse(storedUserRaw); } catch { return null; } })() : null;
+  const effectiveUser = user || storedUser;
+  const effectiveAuth = isAuthenticated || Boolean(storedUser);
+
+  if (isLoading) return null;
+  if (!effectiveAuth) return <Navigate to="/auth?role=admin" replace />;
+  if (effectiveUser?.role !== 'ADMIN') return <Navigate to="/auth?role=admin" replace />;
 
   return children;
 };
@@ -98,6 +117,14 @@ const MainAppContent: React.FC = () => {
                     </ProtectedShopRoute>
                   }
                 />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminDashboard />
+                    </ProtectedAdminRoute>
+                  }
+                />
                 {/* Redirect any customer route directly to shop terminal */}
                 <Route path="/dashboard" element={<Navigate to="/shop" replace />} />
                 <Route path="/orders" element={<Navigate to="/shop" replace />} />
@@ -126,6 +153,16 @@ const MainAppContent: React.FC = () => {
                     <ProtectedCustomerRoute>
                       <CustomerOrdersPage />
                     </ProtectedCustomerRoute>
+                  }
+                />
+
+                {/* Platform Admin Route */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminDashboard />
+                    </ProtectedAdminRoute>
                   }
                 />
 

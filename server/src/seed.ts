@@ -6,6 +6,30 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash('password123', 10);
 
+  // 0. Create Demo Super Admin
+  const adminEmail = 'admin@printhub.com';
+  let adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: 'System Super Admin',
+        phone: '9999900000',
+        role: 'ADMIN',
+        isVerified: true
+      }
+    });
+    console.log('[Seed] Created demo admin: admin@printhub.com / password123 (Role: ADMIN)');
+  } else if (adminUser.role !== 'ADMIN') {
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { role: 'ADMIN', isVerified: true }
+    });
+    console.log('[Seed] Updated existing user to role: ADMIN');
+  }
+
   // 1. Create Demo Customer
   const customerEmail = 'customer@printhub.com';
   let customer = await prisma.user.findUnique({ where: { email: customerEmail } });
