@@ -344,6 +344,61 @@ router.put('/shops/:id/details', async (req: AuthenticatedRequest, res: Response
   }
 });
 
+// Remove / Delete Shop
+router.delete('/shops/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existingShop = await prisma.shop.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+
+    if (!existingShop) {
+      return res.status(404).json({ success: false, message: 'Shop not found' });
+    }
+
+    // Safely remove associated records in transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete order items for this shop's orders
+      await tx.orderItem.deleteMany({
+        where: { order: { shopId: id } }
+      });
+
+      // 2. Delete orders
+      await tx.order.deleteMany({
+        where: { shopId: id }
+      });
+
+      // 3. Delete printers
+      await tx.printer.deleteMany({
+        where: { shopId: id }
+      });
+
+      // 4. Delete the shop itself
+      await tx.shop.delete({
+        where: { id }
+      });
+
+      // 5. If the owner user still exists and role is SHOP, switch to CUSTOMER
+      if (existingShop.userId) {
+        await tx.user.updateMany({
+          where: { id: existingShop.userId, role: 'SHOP' },
+          data: { role: 'CUSTOMER' }
+        });
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `Shop "${existingShop.name}" was successfully removed.`
+    });
+  } catch (error: any) {
+    console.error('[AdminDeleteShopError]', error);
+    return res.status(500).json({ success: false, message: error?.message || 'Failed to remove shop' });
+  }
+});
+
 // ==========================================
 // 4. GLOBAL ORDERS AUDIT & OVERRIDE
 // ==========================================

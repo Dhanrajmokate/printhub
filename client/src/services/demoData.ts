@@ -611,6 +611,18 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
       return { success: true, message: 'Order deleted successfully' };
     }
 
+    // 3. Delete shop: /admin/shops/:shopId
+    const adminShopMatch = url.match(/\/admin\/shops\/([^/?]+)/);
+    if (adminShopMatch) {
+      const targetShopId = adminShopMatch[1];
+      const idx = DEMO_SHOPS.findIndex((s) => s.id.toLowerCase() === targetShopId.toLowerCase());
+      if (idx !== -1) {
+        const removed = DEMO_SHOPS.splice(idx, 1);
+        return { success: true, message: `Shop "${removed[0]?.name || targetShopId}" removed successfully` };
+      }
+      return { success: true, message: 'Shop removed successfully' };
+    }
+
     return { success: true, message: 'Deleted successfully' };
   }
 
