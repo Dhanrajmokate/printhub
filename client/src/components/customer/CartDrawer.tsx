@@ -199,6 +199,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <span>Edit Config</span>
                         </button>
 
+                        {/* Quick Fit to Page Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isFit = item.settings.scaling === 'FIT_PAGE';
+                            updateItemSettings(item.id, {
+                              ...item.settings,
+                              scaling: isFit ? 'FIT' : 'FIT_PAGE',
+                              orientation: isFit ? item.settings.orientation : 'LANDSCAPE',
+                              duplexMode: isFit ? item.settings.duplexMode : 'SINGLE'
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 transition-all border ${
+                            item.settings.scaling === 'FIT_PAGE'
+                              ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                          }`}
+                          title="Toggle edge-to-edge certificate fit"
+                        >
+                          <Award className="w-3.5 h-3.5" />
+                          <span>{item.settings.scaling === 'FIT_PAGE' ? '✓ Fit Page' : 'Fit Page'}</span>
+                        </button>
+
                         {/* Quick Copies Stepper */}
                         <div className="flex items-center bg-slate-200/70 dark:bg-slate-700/60 rounded-xl p-0.5 border border-slate-300/60 dark:border-slate-600/60">
                           <button

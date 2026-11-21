@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, Printer, PackageCheck, Download, Ban, ArrowLeft, RefreshCw, FileText, Camera, ExternalLink, X, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Clock, Printer, PackageCheck, Download, Ban, ArrowLeft, RefreshCw, FileText, Camera, ExternalLink, X, RotateCcw, Award } from 'lucide-react';
 import { Order, OrderStatus } from '../../types/index.js';
 import { api } from '../../services/api.js';
 import { generateReceiptPdf } from '../../services/receipt.js';
@@ -332,7 +332,14 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orderId, onBack }) =
                     )}
                     {item.pageRange !== 'ALL' && <span>• Range: {item.pageRange}</span>}
                     {item.scaling && item.scaling !== 'FIT' && (
-                      <span>• {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}</span>
+                      item.scaling === 'FIT_PAGE' ? (
+                        <span className="text-amber-800 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                          <Award className="w-3 h-3" />
+                          Fit to Whole Page (Certificate)
+                        </span>
+                      ) : (
+                        <span>• {item.scaling === 'ACTUAL' ? '100% Actual' : 'Shrink'}</span>
+                      )
                     )}
                     {item.orientation && item.orientation !== 'AUTO' && (
                       <span>• {item.orientation === 'LANDSCAPE' ? 'Landscape' : 'Portrait'}</span>

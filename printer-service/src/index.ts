@@ -126,7 +126,7 @@ function createPrinterInstance(port: number, printerName: string, printerType: '
       ? 'landscape' 
       : orientation?.toLowerCase() === 'portrait' 
         ? 'portrait' 
-        : undefined; // undefined allows auto-detection from document dimensions
+        : (scaling === 'FIT_PAGE' ? 'landscape' : undefined);
     const finalPaperSize = paperSize || 'A4';
     const finalSide = duplexMode === 'DUPLEX_SHORT' 
       ? 'duplexshort' 

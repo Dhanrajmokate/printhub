@@ -455,7 +455,7 @@ export let DEMO_ORDERS: Order[] = [
         paperSize: 'A4',
         quality: 'HIGH',
         pageRange: '1-2',
-        scaling: 'FIT',
+        scaling: 'FIT_PAGE',
         collate: true,
         itemPrice: 20.0,
         status: 'PRINTED'
@@ -506,6 +506,26 @@ export let DEMO_ORDERS: Order[] = [
     ]
   }
 ];
+
+if (typeof window !== 'undefined') {
+  try {
+    const saved = localStorage.getItem('printhub_demo_orders');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        DEMO_ORDERS = parsed;
+      }
+    }
+  } catch (e) {}
+}
+
+function persistDemoOrders() {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('printhub_demo_orders', JSON.stringify(DEMO_ORDERS));
+    } catch (e) {}
+  }
+}
 
 export const DEMO_SHOP_WALLET = {
   id: 'demo-shop-wallet-id',
@@ -558,6 +578,7 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
       const targetOrder = DEMO_ORDERS.find((o) => o.id === ordId || o.orderNumber?.toLowerCase() === ordId);
       if (targetOrder && targetOrder.items) {
         targetOrder.items = targetOrder.items.filter((i) => i.id !== itmId);
+        persistDemoOrders();
       }
       return { success: true, message: 'Document deleted successfully' };
     }
@@ -567,6 +588,7 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
     if (orderMatch) {
       const ordId = orderMatch[1];
       DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== ordId && o.orderNumber?.toLowerCase() !== ordId);
+      persistDemoOrders();
       return { success: true, message: 'Order deleted successfully' };
     }
 
@@ -606,6 +628,16 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
     return { success: true, printers: DEMO_PRINTERS };
   }
 
+  // 1. Single order lookup by ID: /orders/:id
+  const orderIdMatch = url.match(/\/orders\/([a-zA-Z0-9_\-]+)/);
+  if (orderIdMatch && m === 'GET' && !url.includes('/orders/customer') && !url.includes('/orders/shop') && !url.includes('/orders/history')) {
+    const targetId = orderIdMatch[1];
+    const found = DEMO_ORDERS.find((o) => o.id.toLowerCase() === targetId || o.orderNumber.toLowerCase() === targetId);
+    if (found) {
+      return { success: true, order: found };
+    }
+  }
+
   if (url.includes('/orders/customer')) {
     return { success: true, orders: DEMO_ORDERS.filter((o) => o.customerId === 'demo-customer-id') };
   }
@@ -621,14 +653,69 @@ export function getMockDataForUrl(rawUrl: string, method: string = 'GET', postDa
   }
 
   if (url.includes('/orders') && m === 'POST') {
+    let payload = postData;
+    if (typeof postData === 'string') {
+      try { payload = JSON.parse(postData); } catch (e) {}
+    }
+
+    const newOrderId = `ord-demo-${Date.now()}`;
+    const newOrderNumber = `PH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const targetShop = (payload?.shopId && DEMO_SHOPS.find((s) => s.id === payload.shopId)) || DEMO_SHOPS[0];
+
+    const items = (payload?.items && Array.isArray(payload.items) && payload.items.length > 0)
+      ? payload.items.map((it: any, idx: number) => ({
+          id: `item-demo-${Date.now()}-${idx}`,
+          orderId: newOrderId,
+          originalFileName: it.originalFileName || 'Document.pdf',
+          storedFileName: it.storedFileName || 'Document.pdf',
+          fileType: it.fileType || 'application/pdf',
+          fileSize: it.fileSize || 102400,
+          pageCount: it.pageCount || 1,
+          calculatedPages: it.calculatedPages || it.pageCount || 1,
+          copies: it.copies || 1,
+          colorMode: it.colorMode || 'BW',
+          duplexMode: it.duplexMode || 'SINGLE',
+          orientation: it.orientation || 'PORTRAIT',
+          paperSize: it.paperSize || 'A4',
+          quality: it.quality || 'NORMAL',
+          pageRange: it.pageRange || 'ALL',
+          pageSubset: it.pageSubset || 'ALL',
+          scaling: it.scaling || 'FIT',
+          collate: it.collate !== false,
+          itemPrice: it.itemPrice || (it.copies ? it.copies * 2.0 : 2.0),
+          status: 'PENDING'
+        }))
+      : DEMO_ORDERS[0].items;
+
+    const totalAmount = items.reduce((sum: number, it: any) => sum + (it.itemPrice || 2.0), 0);
+
+    const newOrder: Order = {
+      id: newOrderId,
+      orderNumber: newOrderNumber,
+      customerId: 'demo-customer-id',
+      customer: {
+        id: 'demo-customer-id',
+        name: 'Demo Student Customer',
+        phone: '9876543210',
+        email: 'customer@printhub.com'
+      },
+      shopId: targetShop.id,
+      shop: targetShop,
+      status: 'PENDING',
+      totalAmount,
+      paymentMethod: payload?.paymentMethod || 'SHOP_UPI_QR',
+      paymentStatus: 'PAID',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items
+    };
+
+    DEMO_ORDERS.unshift(newOrder);
+    persistDemoOrders();
+
     return {
       success: true,
-      order: {
-        ...DEMO_ORDERS[0],
-        id: `ord-demo-${Date.now()}`,
-        orderNumber: `PH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: 'PENDING'
-      },
+      order: newOrder,
       message: 'Order created successfully'
     };
   }

@@ -340,9 +340,9 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                 Page Scaling & Certificate Layout
               </label>
               {settings.scaling === 'FIT_PAGE' && (
-                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                  <Award className="w-3 h-3" />
-                  Certificate Fit Active
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-800 flex items-center gap-1.5 shadow-sm">
+                  <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  Full Bleed Certificate Active
                 </span>
               )}
             </div>
@@ -354,53 +354,122 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                 if (settings.scaling === 'FIT_PAGE') {
                   setSettings((s) => ({ ...s, scaling: 'FIT' }));
                 } else {
-                  // When selecting Certificate mode, default orientation to LANDSCAPE if currently AUTO
+                  // For certificates: force edge-to-edge scaling, Landscape orientation, and Simplex (1-sided)
                   setSettings((s) => ({
                     ...s,
                     scaling: 'FIT_PAGE',
-                    orientation: s.orientation === 'AUTO' ? 'LANDSCAPE' : s.orientation
+                    orientation: 'LANDSCAPE',
+                    duplexMode: 'SINGLE'
                   }));
                 }
               }}
-              className={`w-full p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between text-left ${
+              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center justify-between text-left ${
                 settings.scaling === 'FIT_PAGE'
-                  ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 shadow-md shadow-amber-500/10'
+                  ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/30'
                   : 'border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 hover:border-amber-300 text-slate-700 dark:text-slate-300'
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3.5">
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors ${
                     settings.scaling === 'FIT_PAGE'
-                      ? 'bg-amber-500 text-white'
+                      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                       : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                   }`}
                 >
-                  <Award className="w-5 h-5" />
+                  <Award className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm">Fit to Whole Page (Certificate / Photo)</span>
-                    <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
+                    <span className="font-bold text-sm sm:text-base">Fit to Whole Page (Certificate / Photo)</span>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
                       Recommended
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Expands certificate edge-to-edge on full paper with zero cutoff (auto-adjusts to Landscape).
+                    Expands certificate edge-to-edge with 0mm white border (auto sets Landscape & 1-Sided).
                   </p>
                 </div>
               </div>
 
               <div
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-2 ${
+                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-3 transition-colors ${
                   settings.scaling === 'FIT_PAGE'
                     ? 'border-amber-600 bg-amber-600 text-white'
                     : 'border-slate-300 dark:border-slate-600'
                 }`}
               >
-                {settings.scaling === 'FIT_PAGE' && <Check className="w-3 h-3 stroke-[3]" />}
+                {settings.scaling === 'FIT_PAGE' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
               </div>
             </button>
+
+            {/* Interactive Visual Paper Layout Preview */}
+            <div className={`p-3.5 rounded-2xl border transition-all ${
+              settings.scaling === 'FIT_PAGE'
+                ? 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-300/80 dark:border-amber-800/60'
+                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Maximize2 className="w-3.5 h-3.5 text-amber-500" />
+                  Print Margin Preview
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                  {settings.paperSize} • {settings.orientation}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3.5">
+                {/* Visual miniature page */}
+                <div className={`relative flex items-center justify-center border-2 border-slate-400 dark:border-slate-500 bg-white shadow-sm rounded overflow-hidden transition-all shrink-0 ${
+                  settings.orientation === 'LANDSCAPE' ? 'w-24 h-16' : 'w-16 h-24'
+                }`}>
+                  {settings.scaling === 'FIT_PAGE' ? (
+                    <div className="w-full h-full bg-gradient-to-tr from-amber-300 via-amber-200 to-amber-400 dark:from-amber-800 dark:to-amber-700 flex flex-col items-center justify-center p-1 text-center">
+                      <Award className="w-3.5 h-3.5 text-amber-900 dark:text-amber-100 mb-0.5" />
+                      <span className="text-[7px] font-black uppercase tracking-tight text-amber-950 dark:text-white leading-none">
+                        100% Full Bleed
+                      </span>
+                      <span className="text-[5px] text-amber-900 dark:text-amber-200 leading-none mt-0.5">
+                        0mm Margin
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="w-4/5 h-4/5 border border-dashed border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/60 flex flex-col items-center justify-center text-center p-0.5">
+                      <span className="text-[6px] font-bold text-indigo-700 dark:text-indigo-300 leading-none">
+                        Margins
+                      </span>
+                      <span className="text-[5px] text-slate-400 leading-none mt-0.5">
+                        ~15mm white
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Explanation text */}
+                <div className="text-xs space-y-0.5">
+                  {settings.scaling === 'FIT_PAGE' ? (
+                    <>
+                      <p className="font-bold text-amber-900 dark:text-amber-200 text-xs">
+                        🎓 Full-Page Certificate Bleed Active
+                      </p>
+                      <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-snug">
+                        The certificate scales edge-to-edge covering the entire {settings.paperSize} sheet without white margin cutoff.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                        Standard Document Margins
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-snug">
+                        Printed with standard margins around page. Click &quot;Fit to Whole Page&quot; for certificates and marksheets.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               <div>
@@ -414,7 +483,8 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({
                     setSettings((s) => ({
                       ...s,
                       scaling: nextScale,
-                      orientation: nextScale === 'FIT_PAGE' && s.orientation === 'AUTO' ? 'LANDSCAPE' : s.orientation
+                      orientation: nextScale === 'FIT_PAGE' ? 'LANDSCAPE' : s.orientation,
+                      duplexMode: nextScale === 'FIT_PAGE' ? 'SINGLE' : s.duplexMode
                     }));
                   }}
                   className="w-full h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium text-xs sm:text-sm focus:border-indigo-600 focus:outline-none"

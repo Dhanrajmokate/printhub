@@ -820,7 +820,7 @@ ipcMain.handle('print-job', async (event, jobData) => {
       ? 'landscape'
       : jobData.orientation?.toLowerCase() === 'portrait'
       ? 'portrait'
-      : undefined;
+      : (jobData.scaling === 'FIT_PAGE' ? 'landscape' : undefined);
 
     let physicalDispatched = false;
     let dispatchedPrinterName = targetPrinter;

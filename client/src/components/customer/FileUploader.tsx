@@ -150,16 +150,44 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               </span>
             </div>
 
-            {files.length > 1 && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onApplyToAll}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-1.5"
+                onClick={() => {
+                  const allFit = files.every((f) => f.settings.scaling === 'FIT_PAGE');
+                  const updated = files.map((f) => ({
+                    ...f,
+                    settings: {
+                      ...f.settings,
+                      scaling: allFit ? 'FIT' : 'FIT_PAGE',
+                      orientation: allFit ? f.settings.orientation : 'LANDSCAPE',
+                      duplexMode: allFit ? f.settings.duplexMode : 'SINGLE'
+                    }
+                  }));
+                  onFilesChange(updated);
+                }}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors flex items-center gap-1.5 ${
+                  files.some((f) => f.settings.scaling === 'FIT_PAGE')
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+                title="Toggle edge-to-edge full bleed fit for all certificates"
               >
-                <Sliders className="w-3.5 h-3.5" />
-                Apply 1st File Settings to All
+                <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>{files.every((f) => f.settings.scaling === 'FIT_PAGE') ? 'Revert to Standard Margins' : 'Fit All as Certificates'}</span>
               </button>
-            )}
+
+              {files.length > 1 && (
+                <button
+                  type="button"
+                  onClick={onApplyToAll}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-1.5"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  Apply 1st File to All
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3">
@@ -218,7 +246,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                           settings: {
                             ...item.settings,
                             scaling: isFitPage ? 'FIT' : 'FIT_PAGE',
-                            orientation: (!isFitPage && item.settings.orientation === 'AUTO') ? 'LANDSCAPE' : item.settings.orientation
+                            orientation: isFitPage ? item.settings.orientation : 'LANDSCAPE',
+                            duplexMode: isFitPage ? item.settings.duplexMode : 'SINGLE'
                           }
                         };
                         onFilesChange(updated);
@@ -231,7 +260,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                       title="Toggle full page fit (Recommended for certificates, photos, and marksheets)"
                     >
                       <Award className="w-3.5 h-3.5" />
-                      <span>{item.settings.scaling === 'FIT_PAGE' ? '✓ Certificate Fit' : 'Fit to Page'}</span>
+                      <span>{item.settings.scaling === 'FIT_PAGE' ? '✓ Certificate Fit Active' : 'Fit to Whole Page'}</span>
                     </button>
 
                     <button
